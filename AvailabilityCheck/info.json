@@ -1,0 +1,4 @@
+author: sherm
+description: module which sents a http request to a given url in a set interval and sents a notification to a given channel with customizable message when the state of the matching string changes
+install_msg: check [!]help for commands and a short description
+short: check for specific strings on http responses
