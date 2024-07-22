@@ -1,6 +1,7 @@
 from redbot.core import commands
 from discord.ext import tasks
 import aiohttp
+import logging
 
 
 class AvailabilityChecker(commands.Cog):
@@ -49,7 +50,6 @@ class AvailabilityChecker(commands.Cog):
 
     @commands.command()
     async def setUrl(self, ctx, url: str):
-        print("hello world")
         """set URL eg. !setUrl <url>"""
         self.url = url
         await ctx.send(f"URL set")
@@ -88,6 +88,15 @@ class AvailabilityChecker(commands.Cog):
         self.search_string = message
 
         await ctx.send(f"Search string set")
+
+    @commands.command()
+    async def acPing(self, ctx):
+        log = logging.getLogger("red")
+        log.info("Pong")
+
+        await ctx.send(f"Pong")
+
+
 
     def cog_unload(self):
         self.check_availability.cancel()
