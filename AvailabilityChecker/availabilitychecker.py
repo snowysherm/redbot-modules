@@ -49,6 +49,7 @@ class AvailabilityChecker(commands.Cog):
 
     @commands.command()
     async def setUrl(self, ctx, url: str):
+        print("hello world")
         """set URL eg. !setUrl <url>"""
         self.url = url
         await ctx.send(f"URL set")
