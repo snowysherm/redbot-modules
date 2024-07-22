@@ -1,4 +1,4 @@
-from .availabilitycheck import AvailabilityChecker
+from .availabilitychecker import AvailabilityChecker
 
 
 async def setup(bot):
