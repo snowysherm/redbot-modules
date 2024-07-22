@@ -1,5 +1,12 @@
 {
-    "author": ["sherm"],
-    "description": "redbot-repo",
-    "install_msg": "hmmmm bouldern"
+  "author": [
+    "sherm"
+  ],
+  "install_msg": "hmmmm bouldern",
+  "name": "redbot-cogs",
+  "short": "kleine cogs",
+  "description": "redbot-cogs",
+  "tags": [
+    "utility"
+  ]
 }
