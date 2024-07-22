@@ -1,4 +1,4 @@
-# Default ignored files
+# Default ignored fileredbot-moduless
 /shelf/
 /workspace.xml
 # Editor-based HTTP Client requests
@@ -6,3 +6,4 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+/AvailabilityChecker/.env
