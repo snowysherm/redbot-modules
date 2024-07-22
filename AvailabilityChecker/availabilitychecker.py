@@ -14,7 +14,7 @@ class AvailabilityChecker(commands.Cog):
         self.not_found_message = "not found"
         self.search_string = None
 
-    @tasks.loop(seconds=10)
+    @tasks.loop(hours=12)
     async def check_availability(self):
         async with aiohttp.ClientSession() as session:
             if self.url is not None:
