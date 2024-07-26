@@ -94,7 +94,7 @@ class getnfo(commands.Cog):
                 if response.status == 200:
                     data = await response.json()
                     if not data['nfolink']:  # Check if the nfolink list is empty
-                        await ctx.send(f"No NFO could be found. Try `!nfo {release}`.")
+                        await ctx.send(f"No NFO could be found.")
                         return
 
                     nfo_link = data['nfolink'][0]  # Access the first NFO link
@@ -161,9 +161,7 @@ class getnfo(commands.Cog):
                         continue  # Try the next path if 404
 
         if not successful:
-            await ctx.send(
-                "No valid release found for the provided dirname, or no NFO available."
-            )
+            await self.fetch_and_send_nfo_text(ctx, dirname)
 
     @commands.command()
     async def nfotxt(self, ctx, *, release: str):
