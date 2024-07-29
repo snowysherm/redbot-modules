@@ -64,7 +64,7 @@ class getnfo(commands.Cog):
             await self.get_token()
             await asyncio.sleep(3600)  # Sleep for 1 hour
 
-    async def fetch_and_send_nfo(self, ctx, headers, release_info, nfo_type, release_url):
+    async def fetch_and_send_nfo(self, ctx, headers, release_info, nfo_type, release_url, is_scene):
         """Fetch and send the NFO image from the API."""
         nfo_url = f"{self.api_base_url}/nfo/{nfo_type}.json"
         async with aiohttp.ClientSession() as session:
@@ -76,8 +76,12 @@ class getnfo(commands.Cog):
                     data = io.BytesIO(await nfo_response.read())
 
                     view = View()
-                    button = Button(label="View NFO on XREL", url=release_url)
-                    view.add_item(button)
+                    if is_scene:
+                        srrdb_button = Button(label="View on srrDB", url=f"https://www.srrdb.com/release/details/{release_info['dirname']}")
+                        view.add_item(srrdb_button)
+
+                    xrel_button = Button(label="View on xREL", url=release_url)
+                    view.add_item(xrel_button)
 
                     await ctx.send(
                         file=discord.File(data, f"{release_info['id']}_nfo.png"),
@@ -129,8 +133,15 @@ class getnfo(commands.Cog):
                                 chunks.append(current_chunk)
 
                             # Send each chunk as a separate message
-                            for chunk in chunks:
-                                await ctx.send(chunk)
+                            for index, chunk in enumerate(chunks):
+                                view = None
+
+                                if index == len(chunks) - 1:
+                                    view = View()
+                                    button = Button(label="View on srrDB", url=f"https://www.srrdb.com/release/details/{release}")
+                                    view.add_item(button)
+
+                                await ctx.send(chunk, view=view)
                         else:
                             await ctx.send(
                                 f"Failed to retrieve NFO content for release {release}. Status Code: {nfo_response.status}")
@@ -159,8 +170,13 @@ class getnfo(commands.Cog):
                         release_info = await response.json()
                         release_url = release_info["link_href"]
                         if "id" in release_info:
+                            if nfo_type == "release":
+                                is_scene = True
+                            else:
+                                is_scene = False
+
                             await self.fetch_and_send_nfo(
-                                ctx, headers, release_info, nfo_type, release_url
+                                ctx, headers, release_info, nfo_type, release_url, is_scene
                             )
                             successful = True
                             break
