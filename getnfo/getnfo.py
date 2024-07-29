@@ -3,8 +3,8 @@ import discord
 import aiohttp
 import asyncio
 from redbot.core import commands
+from discord.ui import View, Button
 import io  # Needed for byte stream handling
-import re  # Needed for regex processing to strip ASCII art
 
 
 class getnfo(commands.Cog):
@@ -64,7 +64,7 @@ class getnfo(commands.Cog):
             await self.get_token()
             await asyncio.sleep(3600)  # Sleep for 1 hour
 
-    async def fetch_and_send_nfo(self, ctx, headers, release_info, nfo_type):
+    async def fetch_and_send_nfo(self, ctx, headers, release_info, nfo_type, release_url):
         """Fetch and send the NFO image from the API."""
         nfo_url = f"{self.api_base_url}/nfo/{nfo_type}.json"
         async with aiohttp.ClientSession() as session:
@@ -74,8 +74,14 @@ class getnfo(commands.Cog):
                 if nfo_response.status == 200:
                     # Correct handling for image response
                     data = io.BytesIO(await nfo_response.read())
+
+                    view = View()
+                    button = Button(label="View NFO on XREL", url=release_url)
+                    view.add_item(button)
+
                     await ctx.send(
-                        file=discord.File(data, f"{release_info['id']}_nfo.png")
+                        file=discord.File(data, f"{release_info['id']}_nfo.png"),
+                        view=view,
                     )
                 elif nfo_response.status == 404:
                     await ctx.send(f"NFO not found for release ID {release_info['id']}.")
@@ -151,9 +157,10 @@ class getnfo(commands.Cog):
                 ) as response:
                     if response.status == 200:
                         release_info = await response.json()
+                        release_url = release_info["link_href"]
                         if "id" in release_info:
                             await self.fetch_and_send_nfo(
-                                ctx, headers, release_info, nfo_type
+                                ctx, headers, release_info, nfo_type, release_url
                             )
                             successful = True
                             break
