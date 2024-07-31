@@ -16,28 +16,46 @@ class AvailabilityChecker(commands.Cog):
         self.not_found_message = None
         self.search_string = None
 
-    @tasks.loop(hours=12)
-    async def check_availability(self):
-        async with aiohttp.ClientSession() as session:
-            if self.url is not None:
-                async with session.get(self.url) as response:
-                    response_text = await response.text()
-                    if self.search_string is not None:
-                        if self.search_string in response_text:
-                            if not self.found:
-                                await self.send_message(self.found_message)
-
-                            self.found = True
-                        else:
-                            if self.found:
-                                await self.send_message(self.not_found_message)
-                            self.found = False
-
     async def send_message(self, message):
         if self.channel_id:
             channel = self.bot.get_channel(self.channel_id)
             if channel:
                 await channel.send(message)
+
+    async def check_status(self):
+
+        if self.url is None or self.search_string is None or self.channel_id is None:
+            return False
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(self.url) as response:
+                    response_text = await response.text()
+                    channel = self.bot.get_channel(self.channel_id)
+
+                    if channel is None:
+                        print("Invalid channel ID.")
+                        return
+
+                    if self.search_string in response_text:
+                        if not self.found:
+                            await self.send_message(self.found_message)
+                        self.found = True
+                    else:
+                        if self.found:
+                            await self.send_message(self.not_found_message)
+                        self.found = False
+        except aiohttp.ClientError as e:
+            print(f"HTTP request failed: {e}")
+
+    @tasks.loop(hours=12)
+    async def check_availability(self):
+        await self.check_status()
+
+    @commands.command()
+    async def checkNow(self, ctx):
+        if await self.check_status() is False:
+            await ctx.send("URL, search string, or channel ID not set.")
 
     @check_availability.before_loop
     async def before_check_availability(self):
