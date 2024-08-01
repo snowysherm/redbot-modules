@@ -150,6 +150,7 @@ class getnfo(commands.Cog):
 
     @commands.command()
     async def nfo(self, ctx, *, dirname: str):
+        await ctx.typing()
         token = await self.get_token()
         if not token:
             await ctx.send("Failed to obtain valid authentication token.")
