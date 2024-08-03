@@ -2,6 +2,8 @@ import os
 import discord
 import aiohttp
 import asyncio
+import subprocess
+import requests
 from redbot.core import commands
 from discord.ui import View, Button
 import io  # Needed for byte stream handling
@@ -64,7 +66,7 @@ class getnfo(commands.Cog):
             await self.get_token()
             await asyncio.sleep(3600)  # Sleep for 1 hour
 
-    async def fetch_and_send_nfo(self, ctx, headers, release_info, nfo_type, release_url, is_scene):
+    async def fetch_xrel(self, ctx, headers, release_info, nfo_type, release_url, is_scene):
         """Fetch and send the NFO image from the API."""
         nfo_url = f"{self.api_base_url}/nfo/{nfo_type}.json"
         async with aiohttp.ClientSession() as session:
@@ -77,7 +79,8 @@ class getnfo(commands.Cog):
 
                     view = View()
                     if is_scene:
-                        srrdb_button = Button(label="View on srrDB", url=f"https://www.srrdb.com/release/details/{release_info['dirname']}")
+                        srrdb_button = Button(label="View on srrDB",
+                                              url=f"https://www.srrdb.com/release/details/{release_info['dirname']}")
                         view.add_item(srrdb_button)
 
                     xrel_button = Button(label="View on xREL", url=release_url)
@@ -94,59 +97,59 @@ class getnfo(commands.Cog):
                         f"Failed to retrieve NFO: {await nfo_response.text()} Status Code: {nfo_response.status}"
                     )
 
-    async def fetch_and_send_nfo_text(self, ctx, release: str):
+    async def fetch_srrdb(self, ctx, release: str):
         # First, construct the URL to fetch NFO link
         url = f"https://api.srrdb.com/v1/nfo/{release}"
 
-        async with aiohttp.ClientSession() as session:
-            # Fetching the NFO link
-            async with session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    if not data['nfolink']:  # Check if the nfolink list is empty
-                        await ctx.send(f"No NFO could be found.")
-                        return
+        response = requests.get(url)
 
-                    nfo_link = data['nfolink'][0]  # Access the first NFO link
+        if response.status_code == 200:
+            if response.json()['release'] is None:
+                return False
+            nfo_response = requests.get(response.json()['nfolink'][0])
+            current_directory = os.path.dirname(os.path.abspath(__file__))
+            file_name = 'downloaded_nfo'
+            file_path = os.path.join(current_directory, file_name)
+            with open(file_path + '.nfo', "wb") as file:
+                file.write(nfo_response.content)
 
-                    # Now fetch the actual NFO text
-                    async with session.get(nfo_link) as nfo_response:
-                        if nfo_response.status == 200:
-                            try:
-                                nfo_text = await nfo_response.text()
-                            except UnicodeDecodeError:
-                                # If utf-8 decoding fails, try decoding with latin-1
-                                raw_data = await nfo_response.read()
-                                nfo_text = raw_data.decode('latin-1', errors='replace')
-                            # Process and send the NFO text in chunks to avoid Discord message length limits
-                            chunks = []
-                            current_chunk = "```"
-                            for line in nfo_text.splitlines():
-                                if len(current_chunk) + len(line) + 4 > 2000:  # Discord limit is 2000 characters
-                                    current_chunk += "```"
-                                    chunks.append(current_chunk)
-                                    current_chunk = "```" + line + "\n"
-                                else:
-                                    current_chunk += line + "\n"
-                            if current_chunk:
-                                current_chunk += "```"
-                                chunks.append(current_chunk)
+            infekt_exe = os.path.join(current_directory, "iNFEKT", "infekt-cmd.exe")
+            nfo_file_path = os.path.join(current_directory, f"{file_name}")
 
-                            # Send each chunk as a separate message
-                            for index, chunk in enumerate(chunks):
-                                view = None
+            flags_and_arguments = [
+                '--png', nfo_file_path + '.nfo',
+                '-W', '15',
+                '-H', '25',
+                '-R', '15',
+                '-G', '808080'
+            ]
 
-                                if index == len(chunks) - 1:
-                                    view = View()
-                                    button = Button(label="View on srrDB", url=f"https://www.srrdb.com/release/details/{release}")
-                                    view.add_item(button)
+            try:
+                result = subprocess.run([infekt_exe] + flags_and_arguments, capture_output=True, text=True)
 
-                                await ctx.send(chunk, view=view)
-                        else:
-                            await ctx.send(
-                                f"Failed to retrieve NFO content for release {release}. Status Code: {nfo_response.status}")
-                else:
-                    await ctx.send(f"Failed to retrieve NFO link for release {release}. Status Code: {response.status}")
+                print("Return code:", result.returncode)
+                print("Default output:", result.stdout)
+                print("Error output:", result.stderr)
+            except Exception as e:
+                print(f"Error occurred: {e}")
+
+            view = View()
+            button = Button(label="View on srrDB", url=f"https://www.srrdb.com/release/details/{release}")
+            view.add_item(button)
+            with open(file_path + '.png', "rb") as fp:
+                await ctx.send(
+                    file=discord.File(fp, 'downloaded_nfo.png'),
+                    view=view,
+                )
+            os.remove(nfo_file_path + '.nfo')
+            os.remove(nfo_file_path + '.png')
+
+            return True
+
+        else:
+            await ctx.send(f"Failed to retrieve NFO: {response.text} Status Code: {response.status_code}")
+
+            return False
 
     @commands.command()
     async def nfo(self, ctx, *, dirname: str):
@@ -159,37 +162,31 @@ class getnfo(commands.Cog):
         headers = {"Authorization": f"Bearer {token}"}
 
         # Reduce error output by handling errors silently unless both fail
-        successful = False
-        for type_path, nfo_type in [("/release/info.json", "release"), ("/p2p/rls_info.json", "p2p_rls")]:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                        self.api_base_url + type_path,
-                        headers=headers,
-                        params={"dirname": dirname},
-                ) as response:
-                    if response.status == 200:
-                        release_info = await response.json()
-                        release_url = release_info["link_href"]
-                        if "id" in release_info:
-                            if nfo_type == "release":
-                                is_scene = True
-                            else:
-                                is_scene = False
 
-                            await self.fetch_and_send_nfo(
-                                ctx, headers, release_info, nfo_type, release_url, is_scene
-                            )
-                            successful = True
-                            break
-                    elif response.status == 404:
-                        continue  # Try the next path if 404
+        if not (await self.fetch_srrdb(ctx, dirname)):
 
-        if not successful:
-            await self.fetch_and_send_nfo_text(ctx, dirname)
+            for type_path, nfo_type in [("/release/info.json", "release"), ("/p2p/rls_info.json", "p2p_rls")]:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                            self.api_base_url + type_path,
+                            headers=headers,
+                            params={"dirname": dirname},
+                    ) as response:
+                        if response.status == 200:
+                            release_info = await response.json()
+                            release_url = release_info["link_href"]
+                            if "id" in release_info:
+                                if nfo_type == "release":
+                                    is_scene = True
+                                else:
+                                    is_scene = False
 
-    @commands.command()
-    async def nfotxt(self, ctx, *, release: str):
-        await self.fetch_and_send_nfo_text(ctx, release)
+                                await self.fetch_xrel(
+                                    ctx, headers, release_info, nfo_type, release_url, is_scene
+                                )
+                                break
+                        elif response.status == 404:
+                            continue  # Try the next path if 404
 
 
 def setup(bot):
