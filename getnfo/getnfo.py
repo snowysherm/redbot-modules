@@ -1,4 +1,6 @@
 import os
+import tarfile
+
 import discord
 import aiohttp
 import asyncio
@@ -187,6 +189,30 @@ class getnfo(commands.Cog):
                                 break
                         elif response.status == 404:
                             continue  # Try the next path if 404
+
+    @commands.command()
+    async def download(self, ctx, url):
+        response = requests.get(url)
+        destination_path = os.path.dirname(os.path.abspath(__file__))
+        if response.status_code == 200:
+            file_name = os.path.basename(url)
+            file_path = os.path.join(destination_path, file_name)
+
+            with open(file_path, 'wb') as f:
+                f.write(response.content)
+            print("File downloaded successfully.")
+
+            # Unpack the downloaded tar file
+            with tarfile.open(file_path, 'r') as tar_ref:
+                tar_ref.extractall(path=destination_path)
+
+            # Remove the downloaded tar file
+            os.remove(file_path)
+
+            print("File unpacked successfully.")
+        else:
+            print("Failed to download the file.")
+
 
 
 def setup(bot):
