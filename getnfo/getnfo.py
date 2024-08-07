@@ -6,7 +6,7 @@ import aiohttp
 import asyncio
 import subprocess
 import requests
-from redbot.core import commands
+from redbot.core import commands, app_commands
 from discord.ui import View, Button
 import io  # Needed for byte stream handling
 
@@ -153,8 +153,9 @@ class getnfo(commands.Cog):
 
             return False
 
-    @commands.command()
-    async def nfo(self, ctx, *, dirname: str):
+    @app_commands.command()
+    @app_commands.guild_only()
+    async def nfo(self, ctx, *, release: str):
         await ctx.typing()
         token = await self.get_token()
         if not token:
@@ -165,14 +166,14 @@ class getnfo(commands.Cog):
 
         # Reduce error output by handling errors silently unless both fail
 
-        if not (await self.fetch_srrdb(ctx, dirname)):
+        if not (await self.fetch_srrdb(ctx, release)):
 
             for type_path, nfo_type in [("/release/info.json", "release"), ("/p2p/rls_info.json", "p2p_rls")]:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(
                             self.api_base_url + type_path,
                             headers=headers,
-                            params={"dirname": dirname},
+                            params={"dirname": release},
                     ) as response:
                         if response.status == 200:
                             release_info = await response.json()
