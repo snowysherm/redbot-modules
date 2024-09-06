@@ -107,6 +107,8 @@ class getnfo(commands.Cog):
 
         if response.status_code == 200:
             if response.json()['release'] is None:
+                await ctx.send(
+                    f"Arr, Jerome konnte für deinen Release leider weit und breit keine NFO finden! Nicht mal in Davy Jones' Spind...")
                 return False
             nfo_response = requests.get(response.json()['nfolink'][0])
             current_directory = os.path.dirname(os.path.abspath(__file__))
