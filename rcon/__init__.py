@@ -1,5 +1,5 @@
-from .rcon import rcon
+from .rconcog import RconCog
 
 
 async def setup(bot):
-    await bot.add_cog(rcon(bot))
+    await bot.add_cog(RconCog(bot))
