@@ -1,24 +1,23 @@
 from redbot.core import commands
-import discord
-from discord.ext import commands
 from mcrcon import MCRcon
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
 
 class rcon(commands.Cog):
     def __init__(self, bot):
-        self.server_ip = None
+        self.bot = bot
 
     @commands.command()
-    async def setIp(self, ctx, ip):
-        self.server_ip = ip
-
-    @commands.command()
-    async def whitelist(message, minecraft_username: str):
+    async def whitelistadd(self, ctx, username: str):
         try:
-            with MCRcon("", "rcon_passwort", port=25575) as mcr:
-                response = mcr.command(f"whitelist add {minecraft_username}")
-                await message.add_reaction("👍")
-                print(response)
+            with MCRcon("192.168.178.167", os.getenv("SERVER_PASSWORD"), port=25575) as mcr:
+                response = mcr.command(f"whitelist add {username}")
+                await ctx.message.add_reaction("✅")
         except Exception as e:
+            await ctx.message.add_reaction("❌")
             print(e)
 
 
