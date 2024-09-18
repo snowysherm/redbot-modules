@@ -12,6 +12,7 @@ class rcon(commands.Cog):
 
     @commands.command()
     async def whitelistadd(self, ctx, username: str):
+        await ctx.typing()
         try:
             with MCRcon("192.168.178.167", os.getenv("SERVER_PASSWORD"), port=25575) as mcr:
                 response = mcr.command(f"whitelist add {username}")
