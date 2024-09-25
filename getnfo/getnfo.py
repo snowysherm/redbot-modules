@@ -107,8 +107,6 @@ class getnfo(commands.Cog):
 
         if response.status_code == 200:
             if response.json()['release'] is None:
-                await ctx.send(
-                    f"Arr, Jerome konnte für deinen Release leider weit und breit keine NFO finden! Nicht mal in Davy Jones' Spind...")
                 return False
             nfo_response = requests.get(response.json()['nfolink'][0])
             current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -165,8 +163,6 @@ class getnfo(commands.Cog):
 
         headers = {"Authorization": f"Bearer {token}"}
 
-        # Reduce error output by handling errors silently unless both fail
-
         if not (await self.fetch_srrdb(ctx, dirname)):
 
             for type_path, nfo_type in [("/release/info.json", "release"), ("/p2p/rls_info.json", "p2p_rls")]:
@@ -190,7 +186,9 @@ class getnfo(commands.Cog):
                                 )
                                 break
                         elif response.status == 404:
-                            continue  # Try the next path if 404
+                            if nfo_type == "p2p_rls":
+                                await ctx.send("Arr, Jerome konnte für deinen Release leider weit und breit keine NFO finden! Nicht mal in Davy Jones' Spind...")
+                            continue
 
 
 def setup(bot):
