@@ -11,7 +11,7 @@ class PerplexityAPI(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=359554929893)
         default_global = {
-            "model": "pplx-7b-chat",
+            "model": "llama-3.1-70b-instruct",
             "max_tokens": 400,
             "mention": True,
             "reply": True,
@@ -56,19 +56,13 @@ class PerplexityAPI(commands.Cog):
             await ctx.send(f"Perplexity API key not set. Use `{prefix}set api pplx api_key <your_api_key>`.")
             return
         model = await self.config.model()
-        if model is None:
-            await ctx.send("Perplexity AI model not set.")
-            return
         max_tokens = await self.config.max_tokens()
-        if max_tokens is None:
-            await ctx.send("Perplexity AI max_tokens not set.")
-            return
         messages = []
         await self.build_messages(ctx, messages, ctx.message, message)
         reply = await self.call_api(
-            model=model,
             api_key=perplexity_api_key,
             messages=messages,
+            model=model,
             max_tokens=max_tokens
         )
         if reply:
@@ -95,15 +89,15 @@ class PerplexityAPI(commands.Cog):
         if message.reference and message.reference.resolved:
             await self.build_messages(ctx, messages, message.reference.resolved)
 
-    async def call_api(self, messages, model: str, api_key: str, max_tokens: int):
+    async def call_api(self, api_key: str, messages: List[dict], model: str, max_tokens: int):
         try:
             if self.client is None:
-                self.client = PerplexityClient(key=api_key)
+                self.client = PerplexityClient(api_key=api_key)
             
             # Convert messages to a single string
             prompt = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
             
-            response = self.client.query(prompt, model=model)
+            response = self.client.query(prompt)
             
             if len(response) > 2000:
                 response = response[:1997] + "..."
