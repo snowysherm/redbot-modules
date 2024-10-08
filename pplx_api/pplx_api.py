@@ -1,7 +1,7 @@
 from discord import Message
 from redbot.core import Config, checks, commands
 from typing import List
-from perplexipy import Perplexity
+from perplexipy import PerplexityClient
 import re
 
 class PerplexityAPI(commands.Cog):
@@ -18,6 +18,7 @@ class PerplexityAPI(commands.Cog):
             "prompt_insert": "",
         }
         self.config.register_global(**default_global)
+        self.client = None
 
     async def perplexity_api_key(self):
         pplx_keys = await self.bot.get_shared_api_tokens("pplx")
@@ -96,34 +97,39 @@ class PerplexityAPI(commands.Cog):
 
     async def call_api(self, messages, model: str, api_key: str, max_tokens: int):
         try:
-            client = Perplexity(api_key=api_key)
-            response = client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens
-            )
-            reply = response.choices[0].message.content
-
-            if len(reply) > 2000:
-                reply = reply[:1997] + "..."
-
-            return reply
+            if self.client is None:
+                self.client = PerplexityClient(key=api_key)
+            
+            # Convert messages to a single string
+            prompt = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
+            
+            response = self.client.query(prompt, model=model)
+            
+            if len(response) > 2000:
+                response = response[:1997] + "..."
+            
+            return response
         except Exception as e:
             return f"An error occurred: {str(e)}"
 
     @commands.command()
     @checks.is_owner()
     async def getpplxmodel(self, ctx: commands.Context):
-        """Get the model for Perplexity AI.
-        Defaults to `pplx-7b-chat`. See https://docs.perplexity.ai/guides/model-cards for a list of models."""
+        """Get the model for Perplexity AI."""
         model = await self.config.model()
         await ctx.send(f"Perplexity AI model set to `{model}`")
 
     @commands.command()
     @checks.is_owner()
     async def setpplxmodel(self, ctx: commands.Context, model: str):
-        """Set the model for Perplexity AI.
-        Defaults to `pplx-7b-chat`. See https://docs.perplexity.ai/guides/model-cards for a list of models."""
+        """Set the model for Perplexity AI."""
+        if self.client is None:
+            await ctx.send("Client not initialized. Please use the bot once to initialize the client.")
+            return
+        available_models = self.client.models.keys()
+        if model not in available_models:
+            await ctx.send(f"Invalid model. Available models: {', '.join(available_models)}")
+            return
         await self.config.model.set(model)
         await ctx.send("Perplexity AI model set.")
 
@@ -131,8 +137,8 @@ class PerplexityAPI(commands.Cog):
     @checks.is_owner()
     async def getpplxtokens(self, ctx: commands.Context):
         """Get the maximum number of tokens for Perplexity AI to generate."""
-        model = await self.config.max_tokens()
-        await ctx.send(f"Perplexity AI maximum number of tokens set to `{model}`")
+        max_tokens = await self.config.max_tokens()
+        await ctx.send(f"Perplexity AI maximum number of tokens set to `{max_tokens}`")
 
     @commands.command()
     @checks.is_owner()
