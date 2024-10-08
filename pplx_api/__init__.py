@@ -1,5 +1,5 @@
-from .pplx_api import PerplexityAPI
+from .pplx_api import PerplexityAI
 
 async def setup(bot):
-    await bot.add_cog(PerplexityAPI(bot))
+    await bot.add_cog(PerplexityAI(bot))
 
