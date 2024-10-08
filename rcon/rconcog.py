@@ -16,7 +16,10 @@ class RconCog(commands.Cog):
         try:
             with MCRcon("192.168.178.167", os.getenv("SERVER_PASSWORD"), port=25575) as mcr:
                 response = mcr.command(f"whitelist add {username}")
-                await ctx.message.add_reaction("✅")
+                if response == f"Added {username} to the whitelist":
+                    await ctx.message.add_reaction("✅")
+                else:
+                    await ctx.message.add_reaction("❌")
         except Exception as e:
             await ctx.message.add_reaction("❌")
             print(e)
