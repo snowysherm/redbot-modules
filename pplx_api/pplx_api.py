@@ -1,29 +1,37 @@
 from discord import Message
 from redbot.core import Config, checks, commands
-from typing import List, Dict
-from perplexipy import PerplexityClient
+from typing import List
+import openai
+from openai import OpenAI
 import re
 
-class PerplexityAPI(commands.Cog):
+class PerplexityAI(commands.Cog):
     """Send messages to Perplexity AI"""
 
     def __init__(self, bot):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=359554929893)
         default_global = {
-            "model": "llama-3.1-70b-instruct",
+            "perplexity_api_key": None,
+            "model": "llama-3.1-sonar-small-128k-chat",
             "max_tokens": 400,
             "mention": True,
             "reply": True,
             "prompt_insert": "",
         }
         self.config.register_global(**default_global)
-        self.config.register_user(conversation=[])
         self.client = None
 
     async def perplexity_api_key(self):
-        pplx_keys = await self.bot.get_shared_api_tokens("pplx")
-        return pplx_keys.get("api_key")
+        perplexity_keys = await self.bot.get_shared_api_tokens("perplexity")
+        perplexity_api_key = perplexity_keys.get("api_key")
+        if perplexity_api_key is None:
+            # Migrate key from config if exists
+            perplexity_api_key = await self.config.perplexity_api_key()
+            if perplexity_api_key is not None:
+                await self.bot.set_shared_api_tokens("perplexity", api_key=perplexity_api_key)
+                await self.config.perplexity_api_key.set(None)
+        return perplexity_api_key
 
     @commands.Cog.listener()
     async def on_message(self, message: Message):
@@ -42,97 +50,122 @@ class PerplexityAPI(commands.Cog):
             if author is not None:
                 is_reply = message.reference.resolved.author.id == self.bot.user.id and ctx.me in message.mentions
         if is_mention or is_reply:
-            await self.do_pplx(ctx)
+            await self.do_perplexity(ctx)
 
-    @commands.command(aliases=['chat'])
-    async def pplx(self, ctx: commands.Context, *, message: str = None):
+    @commands.command(aliases=['pplx'])
+    async def perplexity(self, ctx: commands.Context, *, message: str):
         """Send a message to Perplexity AI."""
-        await self.do_pplx(ctx, message)
+        await self.do_perplexity(ctx, message)
 
-    async def do_pplx(self, ctx: commands.Context, message: str = None):
+    async def do_perplexity(self, ctx: commands.Context, message: str = None):
         await ctx.typing()
         perplexity_api_key = await self.perplexity_api_key()
         if perplexity_api_key is None:
             prefix = ctx.prefix if ctx.prefix else "[p]"
-            await ctx.send(f"Perplexity API key not set. Use `{prefix}set api pplx api_key `.")
+            await ctx.send(f"Perplexity API key not set. Use `{prefix}set api perplexity api_key `.\nAn API key may be acquired from: https://www.perplexity.ai/")
             return
-
         model = await self.config.model()
+        if model is None:
+            await ctx.send("Perplexity AI model not set.")
+            return
         max_tokens = await self.config.max_tokens()
+        if max_tokens is None:
+            await ctx.send("Perplexity AI max_tokens not set.")
+            return
+        messages = []
+        await self.build_messages(ctx, messages, ctx.message, message)
+        reply = await self.call_api(
+            model=model,
+            api_key=perplexity_api_key,
+            messages=messages,
+            max_tokens=max_tokens
+        )
+        if reply:
+            await ctx.send(
+                content=reply,
+                reference=ctx.message
+            )
+        else:
+            await ctx.send("No response was generated from Perplexity AI. Please try again later.")
 
-        if self.client is None:
-            self.client = PerplexityClient(key=perplexity_api_key)
-
-        conversation = await self.config.user(ctx.author).conversation()
-        prompt = await self.build_prompt(ctx, message, conversation)
-        
-        try:
-            reply = self.client.query(prompt)
-            if len(reply) > 2000:
-                reply = reply[:1997] + "..."
-            await ctx.send(content=reply, reference=ctx.message)
-            
-            conversation.append({"role": "user", "content": message or ctx.message.clean_content})
-            conversation.append({"role": "assistant", "content": reply})
-            await self.config.user(ctx.author).conversation.set(conversation[-10:])  # Keep last 10 messages
-        except Exception as e:
-            await ctx.send(f"An error occurred: {str(e)}")
-
-    async def build_prompt(self, ctx: commands.Context, message: str, conversation: List[Dict[str, str]]) -> str:
+    async def build_messages(self, ctx: commands.Context, messages: List[Message], message: Message, messageText: str = None):
+        role = "assistant" if message.author.id == self.bot.user.id else "user"
+        content = messageText if messageText else message.clean_content
+        to_strip = f"(?m)^(<@!?{self.bot.user.id}>)"
+        is_mention = re.search(to_strip, message.content)
+        if is_mention:
+            content = content[len(ctx.me.display_name) + 2 :]
+        if role == "user" and content.startswith('pplx '):
+            content = content[5:]
         prompt_insert = await self.config.prompt_insert()
-        content = message if message else ctx.message.clean_content
-        
-        # Handle mentions and command prefixes
-        to_strip = f"(?m)^(<@!?{self.bot.user.id}>\\s*)|(pplx\\s+)|(chat\\s+)"
-        content = re.sub(to_strip, "", content, flags=re.IGNORECASE).strip()
-        
-        full_prompt = prompt_insert + "\n\n" if prompt_insert else ""
-        for msg in conversation:
-            full_prompt += f"{msg['role'].capitalize()}: {msg['content']}\n\n"
-        full_prompt += f"User: {content}\nAssistant:"
-        
-        return full_prompt
+        if prompt_insert:
+            content = f"{prompt_insert}\n-----------\n{content}"
+        messages.insert(0, {"role": role, "content": content })
+        if message.reference and message.reference.resolved:
+            await self.build_messages(ctx, messages, message.reference.resolved)
 
-    @commands.command()
-    async def pplxreset(self, ctx: commands.Context):
-        """Reset your conversation history with Perplexity AI."""
-        await self.config.user(ctx.author).conversation.set([])
-        await ctx.send("Your conversation history has been reset.")
+    async def call_api(self, messages, model: str, api_key: str, max_tokens: int):
+        try:
+            if self.client is None:
+                self.client = OpenAI(
+                    api_key=api_key,
+                    base_url="https://api.perplexity.ai"
+                )
+            self.client.api_key = api_key
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens
+            )
+            reply = response.choices[0].message.content
+            if not reply:
+                return "The message from Perplexity AI was empty."
+            else:
+                return reply
+        except openai.APIConnectionError as e:
+            return f"Failed to connect to Perplexity API: {e}"
+        except openai.RateLimitError as e:
+            return f"Perplexity API request exceeded rate limit: {e}"
+        except openai.AuthenticationError as e:
+            return f"Perplexity API returned an Authentication Error: {e}"
+        except openai.APIError as e:
+            return f"Perplexity API returned an API Error: {e}"
+        except Exception as e:
+            return f"An unexpected error occurred: {e}"
 
     @commands.command()
     @checks.is_owner()
-    async def getpplxmodel(self, ctx: commands.Context):
-        """Get the model for Perplexity AI."""
+    async def getperplexitymodel(self, ctx: commands.Context):
+        """Get the model for Perplexity AI.
+        
+        Defaults to `llama-3.1-sonar-small-128k-chat`. See https://docs.perplexity.ai/guides/model-cards for a list of available models."""
         model = await self.config.model()
         await ctx.send(f"Perplexity AI model set to `{model}`")
 
     @commands.command()
     @checks.is_owner()
-    async def setpplxmodel(self, ctx: commands.Context, model: str):
-        """Set the model for Perplexity AI."""
-        if self.client is None:
-            self.client = PerplexityClient(key=await self.perplexity_api_key())
-
-        available_models = self.client.models.keys()
-        if model not in available_models:
-            await ctx.send(f"Invalid model. Available models: {', '.join(available_models)}")
-            return
-
-        self.client.model = model
+    async def setperplexitymodel(self, ctx: commands.Context, model: str):
+        """Set the model for Perplexity AI.
+        
+        Defaults to `llama-3.1-sonar-small-128k-chat`. See https://docs.perplexity.ai/guides/model-cards for a list of available models."""
         await self.config.model.set(model)
-        await ctx.send(f"Perplexity AI model set to {model}.")
+        await ctx.send("Perplexity AI model set.")
 
     @commands.command()
     @checks.is_owner()
-    async def getpplxtokens(self, ctx: commands.Context):
-        """Get the maximum number of tokens for Perplexity AI to generate."""
-        max_tokens = await self.config.max_tokens()
-        await ctx.send(f"Perplexity AI maximum number of tokens set to `{max_tokens}`")
+    async def getperplexitytokens(self, ctx: commands.Context):
+        """Get the maximum number of tokens for Perplexity AI to generate.
+        
+        Defaults to `400`."""
+        model = await self.config.max_tokens()
+        await ctx.send(f"Perplexity AI maximum number of tokens set to `{model}`")
 
     @commands.command()
     @checks.is_owner()
-    async def setpplxtokens(self, ctx: commands.Context, number: str):
-        """Set the maximum number of tokens for Perplexity AI to generate."""
+    async def setperplexitytokens(self, ctx: commands.Context, number: str):
+        """Set the maximum number of tokens for Perplexity AI to generate.
+        
+        Defaults to `400`."""
         try:
             await self.config.max_tokens.set(int(number))
             await ctx.send("Perplexity AI maximum number of tokens set.")
@@ -141,8 +174,9 @@ class PerplexityAPI(commands.Cog):
 
     @commands.command()
     @checks.is_owner()
-    async def togglepplxmention(self, ctx: commands.Context):
+    async def toggleperplexitymention(self, ctx: commands.Context):
         """Toggle messages to Perplexity AI on mention.
+        
         Defaults to `True`."""
         mention = not await self.config.mention()
         await self.config.mention.set(mention)
@@ -153,8 +187,9 @@ class PerplexityAPI(commands.Cog):
 
     @commands.command()
     @checks.is_owner()
-    async def togglepplxreply(self, ctx: commands.Context):
+    async def toggleperplexityreply(self, ctx: commands.Context):
         """Toggle messages to Perplexity AI on reply.
+        
         Defaults to `True`."""
         reply = not await self.config.reply()
         await self.config.reply.set(reply)
@@ -165,14 +200,14 @@ class PerplexityAPI(commands.Cog):
 
     @commands.command()
     @checks.is_owner()
-    async def getpplxpromptinsert(self, ctx: commands.Context):
+    async def getperplexitypromptinsert(self, ctx: commands.Context):
         """Get the prompt insertion for Perplexity AI."""
         prompt_insert = await self.config.prompt_insert()
         await ctx.send(f"Perplexity AI prompt insertion is set to: `{prompt_insert}`")
 
     @commands.command()
     @checks.is_owner()
-    async def setpplxpromptinsert(self, ctx: commands.Context, *, prompt_insert: str):
+    async def setperplexitypromptinsert(self, ctx: commands.Context, *, prompt_insert: str):
         """Set the prompt insertion for Perplexity AI."""
         await self.config.prompt_insert.set(prompt_insert)
         await ctx.send("Perplexity AI prompt insertion set.")
