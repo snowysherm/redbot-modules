@@ -1,0 +1,12 @@
+{
+  "author": ["sherm"],
+  "name": "rcon",
+  "description": "rcon whitelist integration",
+  "install_msg": "",
+  "short": "",
+  "tags": [""],
+  "requirements": ["mcrcon"],
+  "type": "COG",
+  "end_user_data_statement": "",
+  "min_bot_version": "3.5.0"
+}
