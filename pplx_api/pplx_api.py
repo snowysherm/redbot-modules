@@ -20,6 +20,16 @@ class PerplexityAPI(commands.Cog):
         self.config.register_global(**default_global)
         self.client = None
 
+    async def cog_load(self):
+        await self.initialize()
+
+    async def initialize(self):
+        perplexity_api_key = await self.perplexity_api_key()
+        if perplexity_api_key:
+            self.client = PerplexityClient(key=perplexity_api_key)
+            model = await self.config.model()
+            self.client.model = model
+
     async def perplexity_api_key(self):
         pplx_keys = await self.bot.get_shared_api_tokens("pplx")
         return pplx_keys.get("api_key")
@@ -53,13 +63,15 @@ class PerplexityAPI(commands.Cog):
         perplexity_api_key = await self.perplexity_api_key()
         if perplexity_api_key is None:
             prefix = ctx.prefix if ctx.prefix else "[p]"
-            await ctx.send(f"Perplexity API key not set. Use `{prefix}set api pplx api_key <your_api_key>`.")
+            await ctx.send(f"Perplexity API key not set. Use `{prefix}set api pplx api_key `.")
             return
-        model = await self.config.model()
-        max_tokens = await self.config.max_tokens()
+
         if self.client is None:
             self.client = PerplexityClient(key=perplexity_api_key)
-        
+
+        model = await self.config.model()
+        self.client.model = model  # Set the model before querying
+
         prompt = await self.build_prompt(ctx, message)
         try:
             reply = self.client.query(prompt)
@@ -94,14 +106,16 @@ class PerplexityAPI(commands.Cog):
     async def setpplxmodel(self, ctx: commands.Context, model: str):
         """Set the model for Perplexity AI."""
         if self.client is None:
-            await ctx.send("Client not initialized. Please use the bot once to initialize the client.")
-            return
+            self.client = PerplexityClient(key=await self.perplexity_api_key())
+
         available_models = self.client.models.keys()
         if model not in available_models:
             await ctx.send(f"Invalid model. Available models: {', '.join(available_models)}")
             return
+
+        self.client.model = model
         await self.config.model.set(model)
-        await ctx.send("Perplexity AI model set.")
+        await ctx.send(f"Perplexity AI model set to {model}.")
 
     @commands.command()
     @checks.is_owner()
