@@ -1,0 +1,12 @@
+{
+    "author": ["hauge"],
+    "name": "pplx-api",
+    "description": "Send messages to Perplexity",
+    "install_msg": "Requires an Perplexity API key. Use `[p] set api pplx api_key <value>`.",
+    "short": "Send messages to Perplexity",
+    "tags": ["pplx", "perplexity"],
+    "requirements": ["perplexipy"],
+    "type": "COG",
+    "end_user_data_statement": "This cog does not persistently store data or metadata about users. However, this cog does pass user data to an external API for the purposes of simulated conversation responses.",
+    "min_bot_version": "3.5.0"
+}
