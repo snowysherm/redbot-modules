@@ -57,54 +57,30 @@ class PerplexityAPI(commands.Cog):
             return
         model = await self.config.model()
         max_tokens = await self.config.max_tokens()
-        messages = []
-        await self.build_messages(ctx, messages, ctx.message, message)
-        reply = await self.call_api(
-            api_key=perplexity_api_key,
-            messages=messages,
-            model=model,
-            max_tokens=max_tokens
-        )
-        if reply:
-            await ctx.send(
-                content=reply,
-                reference=ctx.message
-            )
-        else:
-            await ctx.send("No response was generated from Perplexity AI. Please try again later.")
+        if self.client is None:
+            self.client = PerplexityClient(key=perplexity_api_key)
+        
+        prompt = await self.build_prompt(ctx, message)
+        try:
+            reply = self.client.query(prompt)
+            if len(reply) > 2000:
+                reply = reply[:1997] + "..."
+            await ctx.send(content=reply, reference=ctx.message)
+        except Exception as e:
+            await ctx.send(f"An error occurred: {str(e)}")
 
-    async def build_messages(self, ctx: commands.Context, messages: List[Message], message: Message, messageText: str = None):
-        role = "assistant" if message.author.id == self.bot.user.id else "user"
-        content = messageText if messageText else message.clean_content
+    async def build_prompt(self, ctx: commands.Context, message: str = None) -> str:
+        content = message if message else ctx.message.clean_content
         to_strip = f"(?m)^(<@!?{self.bot.user.id}>)"
-        is_mention = re.search(to_strip, message.content)
+        is_mention = re.search(to_strip, ctx.message.content)
         if is_mention:
             content = content[len(ctx.me.display_name) + 2 :]
-        if role == "user" and content.startswith('chat '):
+        if content.startswith('chat '):
             content = content[5:]
         prompt_insert = await self.config.prompt_insert()
         if prompt_insert:
             content = f"{prompt_insert}\n-----------\n{content}"
-        messages.insert(0, {"role": role, "content": content })
-        if message.reference and message.reference.resolved:
-            await self.build_messages(ctx, messages, message.reference.resolved)
-
-    async def call_api(self, api_key: str, messages: List[dict], model: str, max_tokens: int):
-        try:
-            if self.client is None:
-                self.client = PerplexityClient(api_key=api_key)
-            
-            # Convert messages to a single string
-            prompt = "\n".join([f"{m['role']}: {m['content']}" for m in messages])
-            
-            response = self.client.query(prompt)
-            
-            if len(response) > 2000:
-                response = response[:1997] + "..."
-            
-            return response
-        except Exception as e:
-            return f"An error occurred: {str(e)}"
+        return content
 
     @commands.command()
     @checks.is_owner()
