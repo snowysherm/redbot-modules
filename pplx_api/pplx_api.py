@@ -10,7 +10,7 @@ class PerplexityAI(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.config = Config.get_conf(self, identifier=359554929893)
+        self.config = Config.get_conf(self, identifier=3.595549e+11)
         default_global = {
             "perplexity_api_key": None,
             "model": "llama-3.1-sonar-small-128k-chat",
@@ -26,7 +26,6 @@ class PerplexityAI(commands.Cog):
         perplexity_keys = await self.bot.get_shared_api_tokens("perplexity")
         perplexity_api_key = perplexity_keys.get("api_key")
         if perplexity_api_key is None:
-            # Migrate key from config if exists
             perplexity_api_key = await self.config.perplexity_api_key()
             if perplexity_api_key is not None:
                 await self.bot.set_shared_api_tokens("perplexity", api_key=perplexity_api_key)
@@ -136,36 +135,28 @@ class PerplexityAI(commands.Cog):
     @commands.command()
     @checks.is_owner()
     async def getperplexitymodel(self, ctx: commands.Context):
-        """Get the model for Perplexity AI.
-        
-        Defaults to `llama-3.1-sonar-small-128k-chat`. See https://docs.perplexity.ai/guides/model-cards for a list of available models."""
+        """Get the model for Perplexity AI."""
         model = await self.config.model()
         await ctx.send(f"Perplexity AI model set to `{model}`")
 
     @commands.command()
     @checks.is_owner()
     async def setperplexitymodel(self, ctx: commands.Context, model: str):
-        """Set the model for Perplexity AI.
-        
-        Defaults to `llama-3.1-sonar-small-128k-chat`. See https://docs.perplexity.ai/guides/model-cards for a list of available models."""
+        """Set the model for Perplexity AI."""
         await self.config.model.set(model)
         await ctx.send("Perplexity AI model set.")
 
     @commands.command()
     @checks.is_owner()
     async def getperplexitytokens(self, ctx: commands.Context):
-        """Get the maximum number of tokens for Perplexity AI to generate.
-        
-        Defaults to `400`."""
+        """Get the maximum number of tokens for Perplexity AI to generate."""
         model = await self.config.max_tokens()
         await ctx.send(f"Perplexity AI maximum number of tokens set to `{model}`")
 
     @commands.command()
     @checks.is_owner()
     async def setperplexitytokens(self, ctx: commands.Context, number: str):
-        """Set the maximum number of tokens for Perplexity AI to generate.
-        
-        Defaults to `400`."""
+        """Set the maximum number of tokens for Perplexity AI to generate."""
         try:
             await self.config.max_tokens.set(int(number))
             await ctx.send("Perplexity AI maximum number of tokens set.")
@@ -175,9 +166,7 @@ class PerplexityAI(commands.Cog):
     @commands.command()
     @checks.is_owner()
     async def toggleperplexitymention(self, ctx: commands.Context):
-        """Toggle messages to Perplexity AI on mention.
-        
-        Defaults to `True`."""
+        """Toggle messages to Perplexity AI on mention."""
         mention = not await self.config.mention()
         await self.config.mention.set(mention)
         if mention:
@@ -188,9 +177,7 @@ class PerplexityAI(commands.Cog):
     @commands.command()
     @checks.is_owner()
     async def toggleperplexityreply(self, ctx: commands.Context):
-        """Toggle messages to Perplexity AI on reply.
-        
-        Defaults to `True`."""
+        """Toggle messages to Perplexity AI on reply."""
         reply = not await self.config.reply()
         await self.config.reply.set(reply)
         if reply:
@@ -211,4 +198,7 @@ class PerplexityAI(commands.Cog):
         """Set the prompt insertion for Perplexity AI."""
         await self.config.prompt_insert.set(prompt_insert)
         await ctx.send("Perplexity AI prompt insertion set.")
+
+def setup(bot):
+    bot.add_cog(PerplexityAI(bot))
 
