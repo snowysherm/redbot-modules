@@ -1,6 +1,6 @@
 {
     "author": ["hauge"],
-    "name": "pplx-api",
+    "name": "pplx_api",
     "description": "Send messages to Perplexity",
     "install_msg": "Requires an Perplexity API key. Use `[p] set api pplx api_key <value>`.",
     "short": "Send messages to Perplexity",
