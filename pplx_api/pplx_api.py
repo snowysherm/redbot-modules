@@ -78,7 +78,7 @@ class PerplexityAPI(commands.Cog):
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
-    async def build_prompt(self, ctx: commands.Context, message: str = None, conversation: List[Dict[str, str]]) -> str:
+    async def build_prompt(self, ctx: commands.Context, message: str, conversation: List[Dict[str, str]]) -> str:
         prompt_insert = await self.config.prompt_insert()
         content = message if message else ctx.message.clean_content
         
@@ -99,7 +99,12 @@ class PerplexityAPI(commands.Cog):
         await self.config.user(ctx.author).conversation.set([])
         await ctx.send("Your conversation history has been reset.")
 
-    # ... (other commands remain the same)
+    @commands.command()
+    @checks.is_owner()
+    async def getpplxmodel(self, ctx: commands.Context):
+        """Get the model for Perplexity AI."""
+        model = await self.config.model()
+        await ctx.send(f"Perplexity AI model set to `{model}`")
 
     @commands.command()
     @checks.is_owner()
@@ -117,5 +122,58 @@ class PerplexityAPI(commands.Cog):
         await self.config.model.set(model)
         await ctx.send(f"Perplexity AI model set to {model}.")
 
-    # ... (other commands remain the same)
+    @commands.command()
+    @checks.is_owner()
+    async def getpplxtokens(self, ctx: commands.Context):
+        """Get the maximum number of tokens for Perplexity AI to generate."""
+        max_tokens = await self.config.max_tokens()
+        await ctx.send(f"Perplexity AI maximum number of tokens set to `{max_tokens}`")
+
+    @commands.command()
+    @checks.is_owner()
+    async def setpplxtokens(self, ctx: commands.Context, number: str):
+        """Set the maximum number of tokens for Perplexity AI to generate."""
+        try:
+            await self.config.max_tokens.set(int(number))
+            await ctx.send("Perplexity AI maximum number of tokens set.")
+        except ValueError:
+            await ctx.send("Invalid numeric value for maximum number of tokens.")
+
+    @commands.command()
+    @checks.is_owner()
+    async def togglepplxmention(self, ctx: commands.Context):
+        """Toggle messages to Perplexity AI on mention.
+        Defaults to `True`."""
+        mention = not await self.config.mention()
+        await self.config.mention.set(mention)
+        if mention:
+            await ctx.send("Enabled sending messages to Perplexity AI on bot mention.")
+        else:
+            await ctx.send("Disabled sending messages to Perplexity AI on bot mention.")
+
+    @commands.command()
+    @checks.is_owner()
+    async def togglepplxreply(self, ctx: commands.Context):
+        """Toggle messages to Perplexity AI on reply.
+        Defaults to `True`."""
+        reply = not await self.config.reply()
+        await self.config.reply.set(reply)
+        if reply:
+            await ctx.send("Enabled sending messages to Perplexity AI on bot reply.")
+        else:
+            await ctx.send("Disabled sending messages to Perplexity AI on bot reply.")
+
+    @commands.command()
+    @checks.is_owner()
+    async def getpplxpromptinsert(self, ctx: commands.Context):
+        """Get the prompt insertion for Perplexity AI."""
+        prompt_insert = await self.config.prompt_insert()
+        await ctx.send(f"Perplexity AI prompt insertion is set to: `{prompt_insert}`")
+
+    @commands.command()
+    @checks.is_owner()
+    async def setpplxpromptinsert(self, ctx: commands.Context, *, prompt_insert: str):
+        """Set the prompt insertion for Perplexity AI."""
+        await self.config.prompt_insert.set(prompt_insert)
+        await ctx.send("Perplexity AI prompt insertion set.")
 
