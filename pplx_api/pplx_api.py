@@ -54,7 +54,7 @@ class PerplexityAPI(commands.Cog):
             await self.do_pplx(ctx)
 
     @commands.command(aliases=['chat'])
-    async def pplx(self, ctx: commands.Context, *, message: str):
+    async def pplx(self, ctx: commands.Context, *, message: str = None):
         """Send a message to Perplexity AI."""
         await self.do_pplx(ctx, message)
 
@@ -70,7 +70,7 @@ class PerplexityAPI(commands.Cog):
             self.client = PerplexityClient(key=perplexity_api_key)
 
         model = await self.config.model()
-        self.client.model = model  # Set the model before querying
+        self.client.model = model
 
         prompt = await self.build_prompt(ctx, message)
         try:
@@ -82,16 +82,31 @@ class PerplexityAPI(commands.Cog):
             await ctx.send(f"An error occurred: {str(e)}")
 
     async def build_prompt(self, ctx: commands.Context, message: str = None) -> str:
-        content = message if message else ctx.message.clean_content
-        to_strip = f"(?m)^(<@!?{self.bot.user.id}>)"
-        is_mention = re.search(to_strip, ctx.message.content)
-        if is_mention:
-            content = content[len(ctx.me.display_name) + 2 :]
-        if content.startswith('chat '):
-            content = content[5:]
         prompt_insert = await self.config.prompt_insert()
+        if message:
+            content = message
+        else:
+            content = ctx.message.content
+            to_strip = f"(?m)^(<@!?{self.bot.user.id}>\\s*)"
+            content = re.sub(to_strip, "", content)
+            if content.lower().startswith("pplx ") or content.lower().startswith("chat "):
+                content = content[5:]
+
+        content = content.strip()
+
         if prompt_insert:
-            content = f"{prompt_insert}\n-----------\n{content}"
+            content = f"{prompt_insert}\n\n{content}"
+
+        return self.sanitize_mentions(ctx, content)
+
+    def sanitize_mentions(self, ctx: commands.Context, content: str) -> str:
+        for user in ctx.message.mentions:
+            content = content.replace(f'<@{user.id}>', f'@{user.display_name}')
+            content = content.replace(f'<@!{user.id}>', f'@{user.display_name}')
+        for role in ctx.message.role_mentions:
+            content = content.replace(f'<@&{role.id}>', f'@{role.name}')
+        for channel in ctx.message.channel_mentions:
+            content = content.replace(f'<#{channel.id}>', f'#{channel.name}')
         return content
 
     @commands.command()
