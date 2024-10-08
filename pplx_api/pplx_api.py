@@ -72,53 +72,35 @@ class PerplexityAPI(commands.Cog):
         model = await self.config.model()
         self.client.model = model
 
-        prompt = await self.build_prompt(ctx, message)
+        messages = await self.build_messages(ctx, message)
         try:
-            reply = self.client.query(prompt)
+            reply = self.client.query(messages)
             if len(reply) > 2000:
                 reply = reply[:1997] + "..."
             await ctx.send(content=reply, reference=ctx.message)
         except Exception as e:
             await ctx.send(f"An error occurred: {str(e)}")
 
-    async def build_prompt(self, ctx: commands.Context, message: str = None) -> str:
+    async def build_messages(self, ctx: commands.Context, message: str = None) -> List[dict]:
         prompt_insert = await self.config.prompt_insert()
-        bot_name = ctx.me.name
-        user_name = ctx.author.name
-
+        
+        messages = []
+        
+        if prompt_insert:
+            messages.append({"role": "system", "content": prompt_insert})
+        
         if message:
             content = message
         else:
             content = ctx.message.content
             to_strip = f"(?m)^(<@!?{self.bot.user.id}>\\s*)"
             content = re.sub(to_strip, "", content)
-            if content.lower().startswith("pplx ") or content.lower().startswith("chat "):
+            if content.lower().startswith('pplx ') or content.lower().startswith('chat '):
                 content = content[5:]
-
-        content = content.strip()
-
-        system_prompt = (
-            f"You are {bot_name}, an AI assistant. "
-            f"You are talking to {user_name}. "
-            f"Respond to their message in a helpful and friendly manner."
-        )
-
-        if prompt_insert:
-            system_prompt += f"\n\n{prompt_insert}"
-
-        full_prompt = f"{system_prompt}\n\n{user_name}: {content}\n\n{bot_name}:"
-
-        return self.sanitize_mentions(ctx, full_prompt)
-
-    def sanitize_mentions(self, ctx: commands.Context, content: str) -> str:
-        for user in ctx.message.mentions:
-            content = content.replace(f'<@{user.id}>', f'@{user.display_name}')
-            content = content.replace(f'<@!{user.id}>', f'@{user.display_name}')
-        for role in ctx.message.role_mentions:
-            content = content.replace(f'<@&{role.id}>', f'@{role.name}')
-        for channel in ctx.message.channel_mentions:
-            content = content.replace(f'<#{channel.id}>', f'#{channel.name}')
-        return content
+        
+        messages.append({"role": "user", "content": content.strip()})
+        
+        return messages
 
     # ... (rest of the commands remain the same)
 
