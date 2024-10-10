@@ -77,7 +77,7 @@ class PerplexityAI(commands.Cog):
         
         formatted_messages = "\n\n".join([f"**{msg['role'].capitalize()}:** {msg['content']}" for msg in messages])
 
-        await ctx.send(f"**Messages Sent to Perplexity AI:**\n{formatted_messages}")
+        await ctx.send(f"**leck mich Messages Sent to Perplexity AI:**\n{formatted_messages}")
         
         reply = await self.call_api(
             model=model,
