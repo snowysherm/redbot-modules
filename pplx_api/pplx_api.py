@@ -76,7 +76,7 @@ class PerplexityAI(commands.Cog):
         
         formatted_messages = "\n\n".join([f"**{msg['role'].capitalize()}:** {msg['content']}" for msg in messages])
 
-        await ctx.send(f"**Messages Sent to Perplexity AI:**\n{formatted_messages}", reference=ctx.message)
+        await ctx.send(f"**Messages Sent to Perplexity AI:**\n{formatted_messages}")
         
         reply = await self.call_api(
             model=model,
@@ -102,6 +102,7 @@ class PerplexityAI(commands.Cog):
         if role == "user" and content.startswith('pplx '):
             content = content[5:]
         messages.insert(0, {"role": role, "content": content })
+        ctx.send(f"{message}")
         if message.reference and message.reference.resolved:
             await self.build_messages(ctx, messages, message.reference.resolved)
         else: #we are finished, now we insert the prompt
