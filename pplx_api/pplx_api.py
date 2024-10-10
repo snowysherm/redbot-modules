@@ -104,8 +104,9 @@ class PerplexityAI(commands.Cog):
         if role == "user":
             if content.startswith('pplx '):
                 content = content[5:]
-        
-            content = f"{message.author.id}: {content}" # add username
+                
+            username = message.author.display_name
+            content = f"{username}: {content}"
         
         # if previous quote is also from a user then add this to the previous message as we can't add 2 user role messages in a row
         if role == "user" and len(messages) > 0 and messages[0]["role"] == "user":
