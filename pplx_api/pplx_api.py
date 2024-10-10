@@ -208,14 +208,14 @@ class PerplexityAI(commands.Cog):
 
     @commands.command()
     @checks.is_owner()
-    async def getprompt(self, ctx: commands.Context):
+    async def getperplexitprompt(self, ctx: commands.Context):
         """Get the prompt for Perplexity AI."""
         prompt = await self.config.prompt()
         await ctx.send(f"Perplexity AI prompt is set to: `{prompt}`")
 
     @commands.command()
     @checks.is_owner()
-    async def setprompt(self, ctx: commands.Context, *, prompt: str):
+    async def setperplexitprompt(self, ctx: commands.Context, *, prompt: str):
         """Set the prompt for Perplexity AI."""
         await self.config.prompt.set(prompt)
         await ctx.send("Perplexity AI prompt set.")
