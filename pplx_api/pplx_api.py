@@ -92,34 +92,47 @@ class PerplexityAI(commands.Cog):
         else:
             await ctx.send("No response was generated from Perplexity AI. Please try again later.")
 
-async def build_messages(self, ctx: commands.Context, messages: List[Message], message: Message, messageText: str = None):
-    role = "assistant" if message.author.id == self.bot.user.id else "user"
-    content = messageText if messageText else message.clean_content
+    async def build_messages(self, ctx: commands.Context, messages: List[Message], message: Message, messageText: str = None):
+        # Logging the incoming message and initial state of the message list
+        await ctx.send(f"**Logging - Initial Message:** {message.clean_content}")
+        await ctx.send(f"**Logging - Initial Message List (before any modifications):** {messages}")
 
-    # Only strip the mention if it's present and we're dealing with a mention.
-    to_strip = f"(?m)^(<@!?{self.bot.user.id}>)"
-    is_mention = re.search(to_strip, message.content)
-    
-    # If it's a mention, strip the bot's name from the content, but ensure the message is intact.
-    if is_mention:
-        content = re.sub(to_strip, '', content).strip()
+        role = "assistant" if message.author.id == self.bot.user.id else "user"
+        content = messageText if messageText else message.clean_content
+        to_strip = f"(?m)^(<@!?{self.bot.user.id}>)"
+        is_mention = re.search(to_strip, message.content)
 
-    # Handle the case where the command prefix is used (like 'pplx')
-    if role == "user" and content.startswith('pplx '):
-        content = content[5:]
-    
-    # Insert the message at the beginning of the list.
-    messages.insert(0, {"role": role, "content": content})
+        # Logging if it's a mention
+        if is_mention:
+            await ctx.send(f"**Logging - Detected Mention:** {message.content}")
+            content = content[len(ctx.me.display_name) + 2:]
 
-    # Recursively handle previous messages in the conversation if they exist.
-    if message.reference and message.reference.resolved:
-        await self.build_messages(ctx, messages, message.reference.resolved)
-    else:
-        # We are finished with recursion, now we insert the system prompt if any.
-        prompt_insert = await self.config.prompt_insert()
-        if prompt_insert:
-            messages.insert(0, {"role": "system", "content": prompt_insert})
+        # Logging the role and content
+        await ctx.send(f"**Logging - Role:** {role}")
+        await ctx.send(f"**Logging - Content (after stripping mention):** {content}")
 
+        if role == "user" and content.startswith('pplx '):
+            await ctx.send(f"**Logging - Stripping 'pplx':** {content}")
+            content = content[5:]
+
+        # Inserting the message to the list
+        messages.insert(0, {"role": role, "content": content})
+
+        # Logging the updated message list after adding the current message
+        await ctx.send(f"**Logging - Message List (after adding current message):** {messages}")
+
+        # Recursively adding referenced messages
+        if message.reference and message.reference.resolved:
+            await ctx.send("**Logging - Message has a reference, processing recursively.**")
+            await self.build_messages(ctx, messages, message.reference.resolved)
+        else:  # We are finished, now we insert the system prompt if it exists
+            prompt_insert = await self.config.prompt_insert()
+            if prompt_insert:
+                await ctx.send(f"**Logging - Adding System Prompt:** {prompt_insert}")
+                messages.insert(0, {"role": "system", "content": prompt_insert})
+
+        # Logging the final message list
+        await ctx.send(f"**Logging - Final Message List:** {messages}")
             
 
     async def call_api(self, messages, model: str, api_key: str, max_tokens: int):
