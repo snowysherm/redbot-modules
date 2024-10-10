@@ -92,22 +92,34 @@ class PerplexityAI(commands.Cog):
         else:
             await ctx.send("No response was generated from Perplexity AI. Please try again later.")
 
-    async def build_messages(self, ctx: commands.Context, messages: List[Message], message: Message, messageText: str = None):
-        role = "assistant" if message.author.id == self.bot.user.id else "user"
-        content = messageText if messageText else message.clean_content
-        to_strip = f"(?m)^(<@!?{self.bot.user.id}>)"
-        is_mention = re.search(to_strip, message.content)
-        if is_mention:
-            content = content[len(ctx.me.display_name) + 2 :]
-        if role == "user" and content.startswith('pplx '):
-            content = content[5:]
-        messages.insert(0, {"role": role, "content": content })
-        if message.reference and message.reference.resolved:
-            await self.build_messages(ctx, messages, message.reference.resolved)
-        else: #we are finished, now we insert the prompt
-            prompt_insert = await self.config.prompt_insert()
-            if prompt_insert:
-                messages.insert(0, {"role": "system", "content": prompt_insert })
+async def build_messages(self, ctx: commands.Context, messages: List[Message], message: Message, messageText: str = None):
+    role = "assistant" if message.author.id == self.bot.user.id else "user"
+    content = messageText if messageText else message.clean_content
+
+    # Only strip the mention if it's present and we're dealing with a mention.
+    to_strip = f"(?m)^(<@!?{self.bot.user.id}>)"
+    is_mention = re.search(to_strip, message.content)
+    
+    # If it's a mention, strip the bot's name from the content, but ensure the message is intact.
+    if is_mention:
+        content = re.sub(to_strip, '', content).strip()
+
+    # Handle the case where the command prefix is used (like 'pplx')
+    if role == "user" and content.startswith('pplx '):
+        content = content[5:]
+    
+    # Insert the message at the beginning of the list.
+    messages.insert(0, {"role": role, "content": content})
+
+    # Recursively handle previous messages in the conversation if they exist.
+    if message.reference and message.reference.resolved:
+        await self.build_messages(ctx, messages, message.reference.resolved)
+    else:
+        # We are finished with recursion, now we insert the system prompt if any.
+        prompt_insert = await self.config.prompt_insert()
+        if prompt_insert:
+            messages.insert(0, {"role": "system", "content": prompt_insert})
+
             
 
     async def call_api(self, messages, model: str, api_key: str, max_tokens: int):
