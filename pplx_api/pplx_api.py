@@ -4,8 +4,6 @@ from typing import List
 import openai
 from openai import OpenAI
 import re
-import json
-
 
 class PerplexityAI(commands.Cog):
     """Send messages to Perplexity AI"""
@@ -74,8 +72,7 @@ class PerplexityAI(commands.Cog):
             await ctx.send("Perplexity AI max_tokens not set.")
             return
         messages = []
-        message_attributes = vars(ctx.message)
-        print(json.dumps(message_attributes, default=str, indent=4))
+
         await self.build_messages(ctx, messages, ctx.message, message)
         
         formatted_messages = "\n\n".join([f"**{msg['role'].capitalize()}:** {msg['content']}" for msg in messages])
@@ -104,8 +101,11 @@ class PerplexityAI(commands.Cog):
             content = content[5:]
         messages.insert(0, {"role": role, "content": content })
         
-        if message.reference and message.reference.resolved:
-            await self.build_messages(ctx, messages, message.reference.resolved)
+        if message.reference:
+            if and message.reference.resolved:
+                await self.build_messages(ctx, messages, message.reference.resolved)
+            else:
+                ctx.send(f"Message {content} has reference but it's not resolved")
         else: #we are finished, now we insert the prompt
             prompt_insert = await self.config.prompt_insert()
             if prompt_insert:
