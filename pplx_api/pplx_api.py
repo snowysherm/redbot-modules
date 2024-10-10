@@ -77,7 +77,7 @@ class PerplexityAI(commands.Cog):
         
         formatted_messages = "\n\n".join([f"**{msg['role'].capitalize()}:** {msg['content']}" for msg in messages])
 
-        await ctx.send(f"**leck mich Messages Sent to Perplexity AI:**\n{formatted_messages}")
+        await ctx.send(f"**Messages Sent to Perplexity AI:**\n{formatted_messages}")
         
         reply = await self.call_api(
             model=model,
@@ -92,8 +92,7 @@ class PerplexityAI(commands.Cog):
 
     async def build_messages(self, ctx: commands.Context, messages: List[Message], message: Message, messageText: str = None):
         if message.reference and message.reference.resolved is None:
-            await ctx.send(f"message {message.content} - {message.reference}")
-            message = await ctx.channel.fetch_message(message.id)  # Refetch the current message to double-check
+            message = await ctx.channel.fetch_message(message.id)  # Refetch the current message
             
         role = "assistant" if message.author.id == self.bot.user.id else "user"
         content = messageText if messageText else message.clean_content
@@ -101,8 +100,12 @@ class PerplexityAI(commands.Cog):
         is_mention = re.search(to_strip, message.content)
         if is_mention:
             content = content[len(ctx.me.display_name) + 2 :]
-        if role == "user" and content.startswith('pplx '):
-            content = f"{message.author.id}: {content[5:]}"
+            
+        if role == "user":
+            if content.startswith('pplx '):
+                content = content[5:]
+        
+            content = f"{message.author.id}: {content}" # add username
         
         # if previous quote is also from a user then add this to the previous message as we can't add 2 user role messages in a row
         if role == "user" and len(messages) > 0 and messages[0]["role"] == "user":
