@@ -85,7 +85,10 @@ class PerplexityAI(commands.Cog):
             max_tokens=max_tokens
         )
         if reply:
-            await ctx.message.reply("No response was generated from Perplexity AI. Please try again later.")
+            await ctx.send(
+                content=reply,
+                reference=ctx.message
+            )
         else:
             await ctx.send("No response was generated from Perplexity AI. Please try again later.")
 
