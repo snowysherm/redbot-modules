@@ -108,6 +108,7 @@ class PerplexityAI(commands.Cog):
         if message.reference and message.reference.resolved:
             await self.build_messages(ctx, messages, message.reference.resolved)
         else: #we are finished, now we insert the prompt
+            ctx.send(message.reference)
             prompt_insert = await self.config.prompt_insert()
             if prompt_insert:
                 messages.insert(0, {"role": "system", "content": prompt_insert })
