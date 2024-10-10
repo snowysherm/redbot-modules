@@ -102,10 +102,16 @@ class PerplexityAI(commands.Cog):
         if is_mention:
             content = content[len(ctx.me.display_name) + 2 :]
         if role == "user" and content.startswith('pplx '):
-            content = content[5:]
-        messages.insert(0, {"role": role, "content": content })
+            content = f"{message.author.id}: {content[5:]}"
         
-        if message.reference and message.reference.resolved:
+        # if previous quote is also from a user then add this to the previous message as we can't add 2 user role messages in a row
+        if role == "user" and messages[0]["role"] == "user":
+            new_content = f"{content}\n{messages[0]['content']}"
+            messages[0]["content"] = new_content
+        else:
+            messages.insert(0, {"role": role, "content": content })
+        
+        if len(messages) <= 5 and message.reference and message.reference.resolved:
             await self.build_messages(ctx, messages, message.reference.resolved)
         else: #we are finished, now we insert the prompt
             prompt_insert = await self.config.prompt_insert()
