@@ -73,6 +73,11 @@ class PerplexityAI(commands.Cog):
             return
         messages = []
         await self.build_messages(ctx, messages, ctx.message, message)
+        
+        formatted_messages = "\n\n".join([f"**{msg['role'].capitalize()}:** {msg['content']}" for msg in messages])
+
+        await ctx.send(f"**Messages Sent to Perplexity AI:**\n{formatted_messages}")
+        
         reply = await self.call_api(
             model=model,
             api_key=perplexity_api_key,
@@ -105,10 +110,6 @@ class PerplexityAI(commands.Cog):
 
     async def call_api(self, messages, model: str, api_key: str, max_tokens: int):
         try:
-            formatted_messages = "\n\n".join([f"**{msg['role'].capitalize()}:** {msg['content']}" for msg in messages])
-
-            await ctx.send(f"**Messages Sent to Perplexity AI:**\n{formatted_messages}")
-
             if self.client is None:
                 self.client = OpenAI(
                     api_key=api_key,
