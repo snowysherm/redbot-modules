@@ -72,6 +72,7 @@ class PerplexityAI(commands.Cog):
             await ctx.send("Perplexity AI max_tokens not set.")
             return
         messages = []
+        ctx.send(vars(ctx.message))
         await self.build_messages(ctx, messages, ctx.message, message)
         
         formatted_messages = "\n\n".join([f"**{msg['role'].capitalize()}:** {msg['content']}" for msg in messages])
