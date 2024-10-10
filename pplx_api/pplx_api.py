@@ -76,7 +76,7 @@ class PerplexityAI(commands.Cog):
         
         formatted_messages = "\n\n".join([f"**{msg['role'].capitalize()}:** {msg['content']}" for msg in messages])
 
-        await ctx.send(f"**Messages Sent to Perplexity AI:**\n{formatted_messages}")
+        await ctx.send(f"**Messages Sent to Perplexity AI:**\n{formatted_messages}", reference=ctx.message)
         
         reply = await self.call_api(
             model=model,
@@ -93,57 +93,23 @@ class PerplexityAI(commands.Cog):
             await ctx.send("No response was generated from Perplexity AI. Please try again later.")
 
     async def build_messages(self, ctx: commands.Context, messages: List[Message], message: Message, messageText: str = None):
-        # Logging the incoming message and initial state of the message list
-        await ctx.send(f"**Logging - Initial Message:** {message.clean_content}")
-        await ctx.send(f"**Logging - Initial Message List (before any modifications):** {messages}")
-
         role = "assistant" if message.author.id == self.bot.user.id else "user"
         content = messageText if messageText else message.clean_content
         to_strip = f"(?m)^(<@!?{self.bot.user.id}>)"
         is_mention = re.search(to_strip, message.content)
-
-        # Logging if it's a mention
         if is_mention:
-            await ctx.send(f"**Logging - Detected Mention:** {message.content}")
-            content = content[len(ctx.me.display_name) + 2:]
-
-        # Logging the role and content
-        await ctx.send(f"**Logging - Role:** {role}")
-        await ctx.send(f"**Logging - Content (after stripping mention):** {content}")
-
+            content = content[len(ctx.me.display_name) + 2 :]
         if role == "user" and content.startswith('pplx '):
-            await ctx.send(f"**Logging - Stripping 'pplx':** {content}")
             content = content[5:]
-
-        # Inserting the message to the list
-        messages.insert(0, {"role": role, "content": content})
-
-        # Logging the updated message list after adding the current message
-        await ctx.send(f"**Logging - Message List (after adding current message):** {messages}")
-
-        # Additional logging to troubleshoot the issue with message references
-        await ctx.send(f"**Logging - Checking message.reference:** {message.reference}")
-        if message.reference:
-            await ctx.send(f"**Logging - message.reference.resolved:** {message.reference.resolved}")
-            if message.reference.resolved:
-                await ctx.send(f"**Logging - message.reference.resolved.author:** {getattr(message.reference.resolved, 'author', None)}")
-            else:
-                await ctx.send(f"**Logging - message.reference.resolved is None**")
-        else:
-            await ctx.send(f"**Logging - message.reference is None**")
-
-        # Recursively adding referenced messages
+        if prompt_insert:
+            content = f"{prompt_insert}\n-----------\n{content}"
+        messages.insert(0, {"role": role, "content": content })
         if message.reference and message.reference.resolved:
-            await ctx.send("**Logging - Message has a reference, processing recursively.**")
             await self.build_messages(ctx, messages, message.reference.resolved)
-        else:  # We are finished, now we insert the system prompt if it exists
+        else: #we are finished, now we insert the prompt
             prompt_insert = await self.config.prompt_insert()
             if prompt_insert:
-                await ctx.send(f"**Logging - Adding System Prompt:** {prompt_insert}")
-                messages.insert(0, {"role": "system", "content": prompt_insert})
-
-        # Logging the final message list
-        await ctx.send(f"**Logging - Final Message List:** {messages}")
+            messages.insert(0, {"role": "system", "content": prompt_insert })
             
 
     async def call_api(self, messages, model: str, api_key: str, max_tokens: int):
