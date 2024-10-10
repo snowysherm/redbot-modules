@@ -93,7 +93,7 @@ class PerplexityAI(commands.Cog):
     async def build_messages(self, ctx: commands.Context, messages: List[Message], message: Message, messageText: str = None):
         if message.reference is None:
             message = await ctx.channel.fetch_message(message.id)  # Refetch the current message to double-check
-            ctx.send(f"message {message.content} - {message.reference}")
+            await ctx.send(f"message {message.content} - {message.reference}")
             
         role = "assistant" if message.author.id == self.bot.user.id else "user"
         content = messageText if messageText else message.clean_content
@@ -108,8 +108,8 @@ class PerplexityAI(commands.Cog):
         if message.reference and message.reference.resolved:
             await self.build_messages(ctx, messages, message.reference.resolved)
         else: #we are finished, now we insert the prompt
-            ctx.send("Test")
-            ctx.send(f"{message.reference}")
+            await ctx.send("Test")
+            await ctx.send(f"{message.reference}")
             prompt_insert = await self.config.prompt_insert()
             if prompt_insert:
                 messages.insert(0, {"role": "system", "content": prompt_insert })
