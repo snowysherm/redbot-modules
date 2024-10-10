@@ -85,10 +85,7 @@ class PerplexityAI(commands.Cog):
             max_tokens=max_tokens
         )
         if reply:
-            await ctx.send(
-                content=reply,
-                reference=ctx.message
-            )
+            await ctx.message.reply("No response was generated from Perplexity AI. Please try again later.")
         else:
             await ctx.send("No response was generated from Perplexity AI. Please try again later.")
 
@@ -102,7 +99,7 @@ class PerplexityAI(commands.Cog):
         if role == "user" and content.startswith('pplx '):
             content = content[5:]
         messages.insert(0, {"role": role, "content": content })
-        ctx.send(f"{message}")
+        
         if message.reference and message.reference.resolved:
             await self.build_messages(ctx, messages, message.reference.resolved)
         else: #we are finished, now we insert the prompt
