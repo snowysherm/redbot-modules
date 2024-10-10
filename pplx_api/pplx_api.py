@@ -105,7 +105,7 @@ class PerplexityAI(commands.Cog):
             content = f"{message.author.id}: {content[5:]}"
         
         # if previous quote is also from a user then add this to the previous message as we can't add 2 user role messages in a row
-        if role == "user" and messages[0]["role"] == "user":
+        if role == "user" and len(messages) > 0 and messages[0]["role"] == "user":
             new_content = f"{content}\n{messages[0]['content']}"
             messages[0]["content"] = new_content
         else:
