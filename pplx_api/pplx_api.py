@@ -102,7 +102,7 @@ class PerplexityAI(commands.Cog):
         messages.insert(0, {"role": role, "content": content })
         
         if message.reference:
-            if and message.reference.resolved:
+            if message.reference.resolved:
                 await self.build_messages(ctx, messages, message.reference.resolved)
             else:
                 ctx.send(f"Message {content} has reference but it's not resolved")
