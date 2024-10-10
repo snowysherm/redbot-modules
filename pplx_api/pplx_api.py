@@ -91,6 +91,9 @@ class PerplexityAI(commands.Cog):
             await ctx.send("No response was generated from Perplexity AI. Please try again later.")
 
     async def build_messages(self, ctx: commands.Context, messages: List[Message], message: Message, messageText: str = None):
+        if message.reference is None:
+            message = await ctx.channel.fetch_message(message.id)  # Refetch the current message to double-check
+            
         role = "assistant" if message.author.id == self.bot.user.id else "user"
         content = messageText if messageText else message.clean_content
         to_strip = f"(?m)^(<@!?{self.bot.user.id}>)"
@@ -101,11 +104,8 @@ class PerplexityAI(commands.Cog):
             content = content[5:]
         messages.insert(0, {"role": role, "content": content })
         
-        if message.reference:
-            if message.reference.resolved:
-                await self.build_messages(ctx, messages, message.reference.resolved)
-            else:
-                ctx.send(f"Message {content} has reference but it's not resolved")
+        if message.reference and message.reference.resolved:
+            await self.build_messages(ctx, messages, message.reference.resolved)
         else: #we are finished, now we insert the prompt
             prompt_insert = await self.config.prompt_insert()
             if prompt_insert:
