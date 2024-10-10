@@ -117,7 +117,7 @@ class PerplexityAI(commands.Cog):
         
         if replyCount < 5 and message.reference and message.reference.resolved:
             replyCount += 1
-            await self.build_messages(ctx, messages, message.reference.resolved)
+            await self.build_messages(ctx, messages, message.reference.resolved, messageText, replyCount)
         else: #we are finished, now we insert the prompt
             prompt_insert = await self.config.prompt_insert()
             if prompt_insert:
