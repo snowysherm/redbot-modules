@@ -102,6 +102,14 @@ class PerplexityAI(commands.Cog):
         if role == "user" and content.startswith('pplx '):
             content = content[5:]
         messages.insert(0, {"role": role, "content": content })
+        
+        if message.reference:
+            await ctx.send(f"**Logging - message.reference.resolved:** {message.reference.resolved}")
+        if message.reference.resolved:
+            await ctx.send(f"**Logging - message.reference.resolved.author:** {getattr(message.reference.resolved, 'author', None)}")
+        else:
+            await ctx.send(f"**Logging - message.reference.resolved is None**")
+        
         if message.reference and message.reference.resolved:
             await self.build_messages(ctx, messages, message.reference.resolved)
         else: #we are finished, now we insert the prompt
