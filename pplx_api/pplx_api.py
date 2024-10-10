@@ -90,7 +90,7 @@ class PerplexityAI(commands.Cog):
         else:
             await ctx.send("No response was generated from Perplexity AI. Please try again later.")
 
-    async def build_messages(self, ctx: commands.Context, messages: List[Message], message: Message, messageText: str = None):
+    async def build_messages(self, ctx: commands.Context, messages: List[Message], message: Message, messageText: str = None, replyCount = 0):
         if message.reference and message.reference.resolved is None:
             message = await ctx.channel.fetch_message(message.id)  # Refetch the current message
             
@@ -115,7 +115,8 @@ class PerplexityAI(commands.Cog):
         else:
             messages.insert(0, {"role": role, "content": content })
         
-        if len(messages) <= 5 and message.reference and message.reference.resolved:
+        if replyCount < 5 and message.reference and message.reference.resolved:
+            replyCount += 1
             await self.build_messages(ctx, messages, message.reference.resolved)
         else: #we are finished, now we insert the prompt
             prompt_insert = await self.config.prompt_insert()
