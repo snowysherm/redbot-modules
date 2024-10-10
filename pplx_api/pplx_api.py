@@ -109,7 +109,7 @@ class PerplexityAI(commands.Cog):
         else: #we are finished, now we insert the prompt
             prompt_insert = await self.config.prompt_insert()
             if prompt_insert:
-            messages.insert(0, {"role": "system", "content": prompt_insert })
+                messages.insert(0, {"role": "system", "content": prompt_insert })
             
 
     async def call_api(self, messages, model: str, api_key: str, max_tokens: int):
