@@ -17,7 +17,7 @@ class PerplexityAI(commands.Cog):
             "max_tokens": 400,
             "mention": True,
             "reply": True,
-            "prompt_insert": "",
+            "prompt": "",
         }
         self.config.register_global(**default_global)
         self.client = None
@@ -119,9 +119,9 @@ class PerplexityAI(commands.Cog):
             replyCount += 1
             await self.build_messages(ctx, messages, message.reference.resolved, messageText, replyCount)
         else: #we are finished, now we insert the prompt
-            prompt_insert = await self.config.prompt_insert()
-            if prompt_insert:
-                messages.insert(0, {"role": "system", "content": prompt_insert })
+            prompt = await self.config.prompt()
+            if prompt:
+                messages.insert(0, {"role": "system", "content": prompt })
             
 
     async def call_api(self, messages, model: str, api_key: str, max_tokens: int):
@@ -208,17 +208,17 @@ class PerplexityAI(commands.Cog):
 
     @commands.command()
     @checks.is_owner()
-    async def getperplexitypromptinsert(self, ctx: commands.Context):
-        """Get the prompt insertion for Perplexity AI."""
-        prompt_insert = await self.config.prompt_insert()
-        await ctx.send(f"Perplexity AI prompt insertion is set to: `{prompt_insert}`")
+    async def getprompt(self, ctx: commands.Context):
+        """Get the prompt for Perplexity AI."""
+        prompt = await self.config.prompt()
+        await ctx.send(f"Perplexity AI prompt is set to: `{prompt}`")
 
     @commands.command()
     @checks.is_owner()
-    async def setperplexitypromptinsert(self, ctx: commands.Context, *, prompt_insert: str):
-        """Set the prompt insertion for Perplexity AI."""
-        await self.config.prompt_insert.set(prompt_insert)
-        await ctx.send("Perplexity AI prompt insertion set.")
+    async def setprompt(self, ctx: commands.Context, *, prompt: str):
+        """Set the prompt for Perplexity AI."""
+        await self.config.prompt.set(prompt)
+        await ctx.send("Perplexity AI prompt set.")
 
 def setup(bot):
     bot.add_cog(PerplexityAI(bot))
