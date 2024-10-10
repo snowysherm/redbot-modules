@@ -101,8 +101,6 @@ class PerplexityAI(commands.Cog):
             content = content[len(ctx.me.display_name) + 2 :]
         if role == "user" and content.startswith('pplx '):
             content = content[5:]
-        if prompt_insert:
-            content = f"{prompt_insert}\n-----------\n{content}"
         messages.insert(0, {"role": role, "content": content })
         if message.reference and message.reference.resolved:
             await self.build_messages(ctx, messages, message.reference.resolved)
