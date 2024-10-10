@@ -121,6 +121,17 @@ class PerplexityAI(commands.Cog):
         # Logging the updated message list after adding the current message
         await ctx.send(f"**Logging - Message List (after adding current message):** {messages}")
 
+        # Additional logging to troubleshoot the issue with message references
+        await ctx.send(f"**Logging - Checking message.reference:** {message.reference}")
+        if message.reference:
+            await ctx.send(f"**Logging - message.reference.resolved:** {message.reference.resolved}")
+            if message.reference.resolved:
+                await ctx.send(f"**Logging - message.reference.resolved.author:** {getattr(message.reference.resolved, 'author', None)}")
+            else:
+                await ctx.send(f"**Logging - message.reference.resolved is None**")
+        else:
+            await ctx.send(f"**Logging - message.reference is None**")
+
         # Recursively adding referenced messages
         if message.reference and message.reference.resolved:
             await ctx.send("**Logging - Message has a reference, processing recursively.**")
