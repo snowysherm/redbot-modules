@@ -31,7 +31,14 @@ class PerplexityAI(commands.Cog):
 
     @commands.command(aliases=['pplx'])
     async def perplexity(self, ctx: commands.Context, *, message: str):
-        """Send a message to Perplexity AI."""
+        """Send a message to Perplexity AI.
+        
+        This command allows you to interact with Perplexity AI by sending a message.
+        The AI will process your input and provide a response.
+        
+        Usage:
+        !pplx <your message>
+        """
         await self.do_perplexity(ctx, message)
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
@@ -56,6 +63,12 @@ class PerplexityAI(commands.Cog):
         prompt = await self.config.prompt()
         if prompt:
             messages.insert(0, {"role": "system", "content": prompt})
+
+        # Debug: Show messages sent to Perplexity AI
+        debug_message = "Messages Sent to Perplexity AI:\n"
+        for msg in messages:
+            debug_message += f"{msg['role'].capitalize()}: {msg['content']}\n\n"
+        await ctx.send(debug_message)
 
         reply = await self.call_api(
             model=model,
