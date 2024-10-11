@@ -3,7 +3,6 @@ from redbot.core import Config, checks, commands
 from typing import List
 import openai
 from openai import OpenAI
-import re
 
 class PerplexityAI(commands.Cog):
     """Send messages to Perplexity AI"""
@@ -15,8 +14,6 @@ class PerplexityAI(commands.Cog):
             "perplexity_api_key": None,
             "model": "llama-3.1-sonar-small-128k-chat",
             "max_tokens": 400,
-            "mention": True,
-            "reply": True,
             "prompt": "",
         }
         self.config.register_global(**default_global)
@@ -32,97 +29,45 @@ class PerplexityAI(commands.Cog):
                 await self.config.perplexity_api_key.set(None)
         return perplexity_api_key
 
-    @commands.Cog.listener()
-    async def on_message(self, message: Message):
-        if message.author.bot:
-            return
-        config_mention = await self.config.mention()
-        config_reply = await self.config.reply()
-        if not config_mention and not config_reply:
-            return
-        ctx: commands.Context = await self.bot.get_context(message)
-        to_strip = f"(?m)^(<@!?{self.bot.user.id}>)"
-        is_mention = config_mention and re.search(to_strip, message.content)
-        is_reply = False
-        if config_reply and message.reference and message.reference.resolved:
-            author = getattr(message.reference.resolved, "author")
-            if author is not None:
-                is_reply = message.reference.resolved.author.id == self.bot.user.id and ctx.me in message.mentions
-        if is_mention or is_reply:
-            await self.do_perplexity(ctx)
-
     @commands.command(aliases=['pplx'])
     async def perplexity(self, ctx: commands.Context, *, message: str):
         """Send a message to Perplexity AI."""
         await self.do_perplexity(ctx, message)
 
-    async def do_perplexity(self, ctx: commands.Context, message: str = None):
+    async def do_perplexity(self, ctx: commands.Context, message: str):
         await ctx.typing()
         perplexity_api_key = await self.perplexity_api_key()
         if perplexity_api_key is None:
             prefix = ctx.prefix if ctx.prefix else "[p]"
             await ctx.send(f"Perplexity API key not set. Use `{prefix}set api perplexity api_key `.\nAn API key may be acquired from: https://www.perplexity.ai/")
             return
+
         model = await self.config.model()
         if model is None:
             await ctx.send("Perplexity AI model not set.")
             return
+
         max_tokens = await self.config.max_tokens()
         if max_tokens is None:
             await ctx.send("Perplexity AI max_tokens not set.")
             return
-        messages = []
 
-        await self.build_messages(ctx, messages, ctx.message, message)
-        
-        formatted_messages = "\n\n".join([f"**{msg['role'].capitalize()}:** {msg['content']}" for msg in messages])
+        messages = [{"role": "user", "content": message}]
+        prompt = await self.config.prompt()
+        if prompt:
+            messages.insert(0, {"role": "system", "content": prompt})
 
-        await ctx.send(f"**Messages Sent to Perplexity AI:**\n{formatted_messages}")
-        
         reply = await self.call_api(
             model=model,
             api_key=perplexity_api_key,
             messages=messages,
             max_tokens=max_tokens
         )
+
         if reply:
-            await ctx.message.reply(content=reply)
+            await ctx.send(reply)
         else:
             await ctx.send("No response was generated from Perplexity AI. Please try again later.")
-
-    async def build_messages(self, ctx: commands.Context, messages: List[Message], message: Message, messageText: str = None, replyCount = 0):
-        if message.reference and message.reference.resolved is None:
-            message = await ctx.channel.fetch_message(message.id)  # Refetch the current message
-            
-        role = "assistant" if message.author.id == self.bot.user.id else "user"
-        content = messageText if messageText else message.clean_content
-        to_strip = f"(?m)^(<@!?{self.bot.user.id}>)"
-        is_mention = re.search(to_strip, message.content)
-        if is_mention:
-            content = content[len(ctx.me.display_name) + 2 :]
-            
-        if role == "user":
-            if content.startswith('pplx '):
-                content = content[5:]
-                
-            username = message.author.display_name
-            content = f"{username}: {content}"
-        
-        # if previous quote is also from a user then add this to the previous message as we can't add 2 user role messages in a row
-        if role == "user" and len(messages) > 0 and messages[0]["role"] == "user":
-            new_content = f"{content}\n{messages[0]['content']}"
-            messages[0]["content"] = new_content
-        else:
-            messages.insert(0, {"role": role, "content": content })
-        
-        if replyCount < 5 and message.reference and message.reference.resolved:
-            replyCount += 1
-            await self.build_messages(ctx, messages, message.reference.resolved, messageText, replyCount)
-        else: #we are finished, now we insert the prompt
-            prompt = await self.config.prompt()
-            if prompt:
-                messages.insert(0, {"role": "system", "content": prompt })
-            
 
     async def call_api(self, messages, model: str, api_key: str, max_tokens: int):
         try:
@@ -183,28 +128,6 @@ class PerplexityAI(commands.Cog):
             await ctx.send("Perplexity AI maximum number of tokens set.")
         except ValueError:
             await ctx.send("Invalid numeric value for maximum number of tokens.")
-
-    @commands.command()
-    @checks.is_owner()
-    async def toggleperplexitymention(self, ctx: commands.Context):
-        """Toggle messages to Perplexity AI on mention."""
-        mention = not await self.config.mention()
-        await self.config.mention.set(mention)
-        if mention:
-            await ctx.send("Enabled sending messages to Perplexity AI on bot mention.")
-        else:
-            await ctx.send("Disabled sending messages to Perplexity AI on bot mention.")
-
-    @commands.command()
-    @checks.is_owner()
-    async def toggleperplexityreply(self, ctx: commands.Context):
-        """Toggle messages to Perplexity AI on reply."""
-        reply = not await self.config.reply()
-        await self.config.reply.set(reply)
-        if reply:
-            await ctx.send("Enabled sending messages to Perplexity AI on bot reply.")
-        else:
-            await ctx.send("Disabled sending messages to Perplexity AI on bot reply.")
 
     @commands.command()
     @checks.is_owner()
