@@ -12,7 +12,7 @@ class PerplexityAI(commands.Cog):
         self.config = Config.get_conf(self, identifier=3.595549e+11)
         default_global = {
             "perplexity_api_key": None,
-            "perplexity_api_key_2": None,  # Add this line
+            "perplexity_api_key_2": None,
             "model": "llama-3.1-sonar-small-128k-chat",
             "max_tokens": 400,
             "prompt": "",
@@ -87,7 +87,10 @@ class PerplexityAI(commands.Cog):
             await ctx.send("No response was generated from Perplexity AI. Please try again later.")
 
     async def call_api(self, messages, model: str, api_key: str, max_tokens: int):
-        api_keys = [api_key, await self.perplexity_api_keys()[1]]  # Get both API keys
+        api_keys = [api_key]
+        second_key = (await self.perplexity_api_keys())[1]
+        if second_key:
+            api_keys.append(second_key)
         
         for key in api_keys:
             if key is None:
