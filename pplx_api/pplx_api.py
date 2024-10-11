@@ -65,10 +65,10 @@ class PerplexityAI(commands.Cog):
             messages.insert(0, {"role": "system", "content": prompt})
 
         # Debug: Show messages sent to Perplexity AI
-        debug_message = "Messages Sent to Perplexity AI:\n"
-        for msg in messages:
-            debug_message += f"{msg['role'].capitalize()}: {msg['content']}\n\n"
-        await ctx.send(debug_message)
+        # debug_message = "Messages Sent to Perplexity AI:\n"
+        # for msg in messages:
+        #     debug_message += f"{msg['role'].capitalize()}: {msg['content']}\n\n"
+        # await ctx.send(debug_message)
 
         reply = await self.call_api(
             model=model,
