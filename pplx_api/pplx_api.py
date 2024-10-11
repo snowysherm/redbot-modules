@@ -12,6 +12,7 @@ class PerplexityAI(commands.Cog):
         self.config = Config.get_conf(self, identifier=3.595549e+11)
         default_global = {
             "perplexity_api_key": None,
+            "perplexity_api_key_2": None,  # Add this line
             "model": "llama-3.1-sonar-small-128k-chat",
             "max_tokens": 400,
             "prompt": "",
@@ -19,23 +20,32 @@ class PerplexityAI(commands.Cog):
         self.config.register_global(**default_global)
         self.client = None
 
-    async def perplexity_api_key(self):
+    async def perplexity_api_keys(self):
         perplexity_keys = await self.bot.get_shared_api_tokens("perplexity")
-        perplexity_api_key = perplexity_keys.get("api_key")
-        if perplexity_api_key is None:
-            perplexity_api_key = await self.config.perplexity_api_key()
-            if perplexity_api_key is not None:
-                await self.bot.set_shared_api_tokens("perplexity", api_key=perplexity_api_key)
-                await self.config.perplexity_api_key.set(None)
-        return perplexity_api_key
+        api_key = perplexity_keys.get("api_key")
+        api_key_2 = perplexity_keys.get("api_key_2")
+
+        if api_key is None:
+            api_key = await self.config.perplexity_api_key()
+        if api_key_2 is None:
+            api_key_2 = await self.config.perplexity_api_key_2()
+
+        if api_key is not None:
+            await self.bot.set_shared_api_tokens("perplexity", api_key=api_key)
+            await self.config.perplexity_api_key.set(None)
+        if api_key_2 is not None:
+            await self.bot.set_shared_api_tokens("perplexity", api_key_2=api_key_2)
+            await self.config.perplexity_api_key_2.set(None)
+
+        return api_key, api_key_2
 
     @commands.command(aliases=['pplx'])
     async def perplexity(self, ctx: commands.Context, *, message: str):
         """Send a message to Perplexity AI.
-        
+
         This command allows you to interact with Perplexity AI by sending a message.
         The AI will process your input and provide a response.
-        
+
         Usage:
         !pplx <your message>
         """
@@ -43,10 +53,10 @@ class PerplexityAI(commands.Cog):
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
         await ctx.typing()
-        perplexity_api_key = await self.perplexity_api_key()
-        if perplexity_api_key is None:
+        api_key, api_key_2 = await self.perplexity_api_keys()
+        if api_key is None and api_key_2 is None:
             prefix = ctx.prefix if ctx.prefix else "[p]"
-            await ctx.send(f"Perplexity API key not set. Use `{prefix}set api perplexity api_key `.\nAn API key may be acquired from: https://www.perplexity.ai/")
+            await ctx.send(f"Perplexity API keys not set. Use `{prefix}set api perplexity api_key,api_key_2 <your_key>,<your_second_key>`.\nAPI keys may be acquired from: https://www.perplexity.ai/")
             return
 
         model = await self.config.model()
@@ -64,15 +74,9 @@ class PerplexityAI(commands.Cog):
         if prompt:
             messages.insert(0, {"role": "system", "content": prompt})
 
-        # Debug: Show messages sent to Perplexity AI
-        # debug_message = "Messages Sent to Perplexity AI:\n"
-        # for msg in messages:
-        #     debug_message += f"{msg['role'].capitalize()}: {msg['content']}\n\n"
-        # await ctx.send(debug_message)
-
         reply = await self.call_api(
             model=model,
-            api_key=perplexity_api_key,
+            api_key=api_key,
             messages=messages,
             max_tokens=max_tokens
         )
@@ -83,33 +87,56 @@ class PerplexityAI(commands.Cog):
             await ctx.send("No response was generated from Perplexity AI. Please try again later.")
 
     async def call_api(self, messages, model: str, api_key: str, max_tokens: int):
-        try:
-            if self.client is None:
-                self.client = OpenAI(
-                    api_key=api_key,
-                    base_url="https://api.perplexity.ai"
+        api_keys = [api_key, await self.perplexity_api_keys()[1]]  # Get both API keys
+        
+        for key in api_keys:
+            if key is None:
+                continue
+            
+            try:
+                if self.client is None or self.client.api_key != key:
+                    self.client = OpenAI(
+                        api_key=key,
+                        base_url="https://api.perplexity.ai"
+                    )
+
+                response = self.client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=max_tokens
                 )
-            self.client.api_key = api_key
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens
-            )
-            reply = response.choices[0].message.content
-            if not reply:
-                return "The message from Perplexity AI was empty."
-            else:
-                return reply
-        except openai.APIConnectionError as e:
-            return f"Failed to connect to Perplexity API: {e}"
-        except openai.RateLimitError as e:
-            return f"Perplexity API request exceeded rate limit: {e}"
-        except openai.AuthenticationError as e:
-            return f"Perplexity API returned an Authentication Error: {e}"
-        except openai.APIError as e:
-            return f"Perplexity API returned an API Error: {e}"
-        except Exception as e:
-            return f"An unexpected error occurred: {e}"
+
+                reply = response.choices[0].message.content
+                if not reply:
+                    return "The message from Perplexity AI was empty."
+                else:
+                    return reply
+
+            except openai.RateLimitError as e:
+                if key == api_keys[-1]:  # If this is the last key, raise the error
+                    return f"All Perplexity API keys have exceeded their rate limit: {e}"
+                else:
+                    continue  # Try the next key
+
+            except openai.APIError as e:
+                if "insufficient_quota" in str(e):
+                    if key == api_keys[-1]:  # If this is the last key, raise the error
+                        return f"All Perplexity API keys have insufficient funds: {e}"
+                    else:
+                        continue  # Try the next key
+                else:
+                    return f"Perplexity API returned an API Error: {e}"
+
+            except openai.APIConnectionError as e:
+                return f"Failed to connect to Perplexity API: {e}"
+
+            except openai.AuthenticationError as e:
+                return f"Perplexity API returned an Authentication Error: {e}"
+
+            except Exception as e:
+                return f"An unexpected error occurred: {e}"
+
+        return "All API keys failed. Please check your Perplexity API keys and try again."
 
     @commands.command()
     @checks.is_owner()
