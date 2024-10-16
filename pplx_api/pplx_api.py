@@ -3,6 +3,7 @@ from redbot.core import Config, checks, commands
 from typing import List
 import openai
 from openai import OpenAI
+import re
 
 class PerplexityAI(commands.Cog):
     """Send messages to Perplexity AI"""
@@ -54,9 +55,10 @@ class PerplexityAI(commands.Cog):
     async def do_perplexity(self, ctx: commands.Context, message: str):
         await ctx.typing()
         api_key, api_key_2 = await self.perplexity_api_keys()
+
         if api_key is None and api_key_2 is None:
             prefix = ctx.prefix if ctx.prefix else "[p]"
-            await ctx.send(f"Perplexity API keys not set. Use `{prefix}set api perplexity api_key,api_key_2 <your_key>,<your_second_key>`.\nAPI keys may be acquired from: https://www.perplexity.ai/")
+            await ctx.send(f"Perplexity API keys not set. Use `{prefix}set api perplexity api_key,api_key_2 ,`.\nAPI keys may be acquired from: https://www.perplexity.ai/")
             return
 
         model = await self.config.model()
@@ -82,7 +84,9 @@ class PerplexityAI(commands.Cog):
         )
 
         if reply:
-            await ctx.send(reply)
+            chunks = self.smart_split(reply)
+            for chunk in chunks:
+                await ctx.send(chunk)
         else:
             await ctx.send("No response was generated from Perplexity AI. Please try again later.")
 
@@ -91,11 +95,10 @@ class PerplexityAI(commands.Cog):
         second_key = (await self.perplexity_api_keys())[1]
         if second_key:
             api_keys.append(second_key)
-        
+
         for key in api_keys:
             if key is None:
                 continue
-            
             try:
                 if self.client is None or self.client.api_key != key:
                     self.client = OpenAI(
@@ -114,13 +117,11 @@ class PerplexityAI(commands.Cog):
                     return "The message from Perplexity AI was empty."
                 else:
                     return reply
-
             except openai.RateLimitError as e:
                 if key == api_keys[-1]:  # If this is the last key, raise the error
                     return f"All Perplexity API keys have exceeded their rate limit: {e}"
                 else:
                     continue  # Try the next key
-
             except openai.APIError as e:
                 if "insufficient_quota" in str(e):
                     if key == api_keys[-1]:  # If this is the last key, raise the error
@@ -129,17 +130,35 @@ class PerplexityAI(commands.Cog):
                         continue  # Try the next key
                 else:
                     return f"Perplexity API returned an API Error: {e}"
-
             except openai.APIConnectionError as e:
                 return f"Failed to connect to Perplexity API: {e}"
-
             except openai.AuthenticationError as e:
                 return f"Perplexity API returned an Authentication Error: {e}"
-
             except Exception as e:
                 return f"An unexpected error occurred: {e}"
 
         return "All API keys failed. Please check your Perplexity API keys and try again."
+
+    def smart_split(self, text: str, char_limit: int = 2000) -> List[str]:
+        chunks = []
+        current_chunk = ""
+        code_block = False
+        lines = text.split('\n')
+
+        for line in lines:
+            if line.strip().startswith('```'):
+                code_block = not code_block
+
+            if len(current_chunk) + len(line) + 1 > char_limit and not code_block:
+                chunks.append(current_chunk.strip())
+                current_chunk = line + '\n'
+            else:
+                current_chunk += line + '\n'
+
+        if current_chunk:
+            chunks.append(current_chunk.strip())
+
+        return chunks
 
     @commands.command()
     @checks.is_owner()
