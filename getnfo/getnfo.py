@@ -10,7 +10,9 @@ from redbot.core import commands
 from discord.ui import View, Button
 import io  # Needed for byte stream handling
 import json
+import logging
 
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s')
 
 class getnfo(commands.Cog):
     """Cog to fetch NFOs for warez releases using the xrel.to and predb.net APIs"""
