@@ -42,35 +42,40 @@ class getnfo(commands.Cog):
         return credentials.get("CLIENT_ID"), credentials.get("CLIENT_SECRET")
         
     async def get_token(self):
-        """Fetches or reuses the OAuth2 token using Client Credentials Grant."""
+        """Fetches or reuses the OAuth2 token using Client Credentials Grant with curl."""
         current_time = asyncio.get_event_loop().time()
         logging.debug(f"Current time: {current_time}")
         if not self.token or current_time >= self.token_expires_at:
-            async with aiohttp.ClientSession() as session:
-                auth = aiohttp.BasicAuth(self.client_id, self.client_secret)
-                data = {"grant_type": "client_credentials", "scope": "viewnfo"}
-                logging.error(f"Request URL: {self.api_base_url}/oauth2/token")
-                logging.error(f"Request data: {data}")
-                logging.error(f"Request auth: {auth}")
+            curl_command = [
+                "curl",
+                "-X", "POST",
+                f"{self.api_base_url}/oauth2/token",
+                "--data", "grant_type=client_credentials",
+                "--data", "scope=viewnfo",
+                "--user", f"{self.client_id}:{self.client_secret}"
+            ]
 
-                async with session.post(
-                        self.api_base_url + "/oauth2/token", auth=auth, data=data
-                ) as response:
-                    logging.debug(f"Response status: {response.status}")
-                    if response.status == 200:
-                        token_data = await response.json()
-                        self.token = token_data.get("access_token")
-                        expires_in = token_data.get("expires_in", 3600)
-                        self.token_expires_at = current_time + expires_in - 60  # Refresh 1 minute before expiration
-                        logging.debug(f"Token: {self.token}")
-                        logging.debug(f"Token expires at: {self.token_expires_at}")
-                        if not self.token or self.token.count(".") != 2:
-                            logging.error("Invalid token format: %s", self.token)
-                            self.token = None  # Reset token if invalid
-                    else:
-                        logging.error(f"Failed to retrieve token: {response.status}")
-                        logging.error(f"Response text: {await response.text()}")
-                        self.token = None
+            try:
+                result = subprocess.run(curl_command, capture_output=True, text=True)
+                logging.debug(f"Curl stdout: {result.stdout}")
+                logging.debug(f"Curl stderr: {result.stderr}")
+
+                if result.returncode == 0:
+                    token_data = json.loads(result.stdout)
+                    self.token = token_data.get("access_token")
+                    expires_in = token_data.get("expires_in", 3600)
+                    self.token_expires_at = current_time + expires_in - 60  # Refresh 1 minute before expiration
+                    logging.debug(f"Token: {self.token}")
+                    logging.debug(f"Token expires at: {self.token_expires_at}")
+                    if not self.token or self.token.count(".") != 2:
+                        logging.error("Invalid token format: %s", self.token)
+                        self.token = None  # Reset token if invalid
+                else:
+                    logging.error(f"Failed to retrieve token: {result.stderr}")
+                    self.token = None
+            except Exception as e:
+                logging.error(f"Error occurred during curl command: {e}")
+                self.token = None
         return self.token
         
     async def schedule_token_refresh(self):
