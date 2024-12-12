@@ -106,8 +106,6 @@ class getnfo(commands.Cog):
         response = subprocess.run(curl_command, capture_output=True)
         nfo_response_content = response.stdout
 
-        # Log raw response
-        logging.debug(f"Raw NFO response: {nfo_response_content.decode('utf-8', errors='ignore')}")
         
         if response.returncode == 0 and nfo_response_content:
             try:
