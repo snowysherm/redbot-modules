@@ -185,6 +185,7 @@ class getnfo(commands.Cog):
                 response = subprocess.run(curl_command, capture_output=True)
                 if response.returncode == 0:
                     release_info = response.stdout.decode('utf-8')
+                    logging.debug(release_info)
                     try:
                         release_info = json.loads(release_info)
                     except json.JSONDecodeError:
