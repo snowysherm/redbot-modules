@@ -180,12 +180,10 @@ class getnfo(commands.Cog):
                 url = self.api_base_url + type_path
                 curl_command = ["curl", "-s", "-H", f"Authorization: Bearer {token}", "-G", url, "--data-urlencode", f"dirname={dirname}"]
                 
-                logging.debug(' '.join(curl_command))
-                
+
                 response = subprocess.run(curl_command, capture_output=True)
                 if response.returncode == 0:
                     release_info = response.stdout.decode('utf-8')
-                    logging.debug(release_info)
                     try:
                         release_info = json.loads(release_info)
                     except json.JSONDecodeError:
@@ -194,8 +192,8 @@ class getnfo(commands.Cog):
                     
                     logging.debug("Release info:", release_info)
                     
-                    if "link_href" in release_info:
-                        release_url = release_info["link_href"]
+                    if "ext_info" in release_info and "link_href" in release_info["ext_info"]:
+                        release_url = release_info["ext_info"]["link_href"]
                         is_scene = (nfo_type == "release")
                         await self.fetch_xrel(ctx, headers, release_info, nfo_type, release_url, is_scene)
                         break
