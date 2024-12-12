@@ -170,6 +170,7 @@ class getnfo(commands.Cog):
 
             return False
 
+
     @commands.command()
     async def nfo(self, ctx, *, dirname: str):
         await ctx.typing()
@@ -177,38 +178,25 @@ class getnfo(commands.Cog):
         if not token:
             await ctx.send("Failed to obtain valid authentication token.")
             return
-
+    
         headers = {
-            "Authorization": f"Bearer {token}",
-            "User-Agent": "curl/8.11.1"  # Fake User-Agent to avoid cloudflare detection
+            "Authorization": f"Bearer {token}"
         }
-
+    
         if not (await self.fetch_srrdb(ctx, dirname)):
-
             for type_path, nfo_type in [("/release/info.json", "release"), ("/p2p/rls_info.json", "p2p_rls")]:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(
-                            self.api_base_url + type_path,
-                            headers=headers,
-                            params={"dirname": dirname},
-                    ) as response:
-                        if response.status == 200:
-                            release_info = await response.json()
-                            release_url = release_info["link_href"]
-                            if "id" in release_info:
-                                if nfo_type == "release":
-                                    is_scene = True
-                                else:
-                                    is_scene = False
-
-                                await self.fetch_xrel(
-                                    ctx, headers, release_info, nfo_type, release_url, is_scene
-                                )
-                                break
-                        elif response.status == 404:
-                            if nfo_type == "p2p_rls":
-                                await ctx.send("Arr, Jerome konnte für deinen Release leider weit und breit keine NFO finden! Nicht mal in Davy Jones' Spind...")
-                            continue
+                response = requests.get(self.api_base_url + type_path, headers=headers, params={"dirname": dirname})
+                if response.status_code == 200:
+                    release_info = response.json()
+                    release_url = release_info["link_href"]
+                    if "id" in release_info:
+                        is_scene = nfo_type == "release"
+                        await self.fetch_xrel(ctx, headers, release_info, nfo_type, release_url, is_scene)
+                        break
+                elif response.status_code == 404:
+                    if nfo_type == "p2p_rls":
+                        await ctx.send("Arr, Jerome konnte für deinen Release leider weit und breit keine NFO finden! Nicht mal in Davy Jones' Spind...")
+                    continue
 
 
 def setup(bot):
