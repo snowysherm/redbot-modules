@@ -7,6 +7,7 @@ import asyncio
 import subprocess
 import requests
 import logging
+import json
 from redbot.core import commands
 from discord.ui import View, Button
 import io  # Needed for byte stream handling
