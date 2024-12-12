@@ -49,9 +49,9 @@ class getnfo(commands.Cog):
             async with aiohttp.ClientSession() as session:
                 auth = aiohttp.BasicAuth(self.client_id, self.client_secret)
                 data = {"grant_type": "client_credentials", "scope": "viewnfo"}
-                logging.debug(f"Request URL: {self.api_base_url}/oauth2/token")
-                logging.debug(f"Request data: {data}")
-                logging.debug(f"Request auth: {auth}")
+                logging.error(f"Request URL: {self.api_base_url}/oauth2/token")
+                logging.error(f"Request data: {data}")
+                logging.error(f"Request auth: {auth}")
 
                 async with session.post(
                         self.api_base_url + "/oauth2/token", auth=auth, data=data
