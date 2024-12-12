@@ -183,14 +183,18 @@ class getnfo(commands.Cog):
 
                 response = subprocess.run(curl_command, capture_output=True)
                 if response.returncode == 0:
-                    release_info = response.stdout.decode('utf-8')
+                    raw_response = response.stdout.decode('utf-8')
+                    
+                    # Log raw response
+                    logging.debug(f"Raw response: {raw_response}")
+
                     try:
-                        release_info = json.loads(release_info)
+                        release_info = json.loads(raw_response)
                     except json.JSONDecodeError:
                         await ctx.send("Failed to parse JSON response.")
                         return
                     
-                    logging.debug("Release info:", release_info)
+                    logging.debug(f"Release info: {release_info}")
                     
                     if "ext_info" in release_info and "link_href" in release_info["ext_info"]:
                         release_url = release_info["ext_info"]["link_href"]
