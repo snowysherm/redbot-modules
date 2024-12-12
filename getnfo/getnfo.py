@@ -91,24 +91,33 @@ class getnfo(commands.Cog):
         nfo_url = f"{self.api_base_url}/nfo/{nfo_type}.json"
         curl_command = ["curl", "-s", "-H", f"Authorization: Bearer {headers['Authorization']}", "-G", nfo_url, "--data-urlencode", f"id={release_info['id']}"]
         
+        # Log the curl command
+        log_command = ' '.join(curl_command)
+        logging.debug(f"Curl command: {log_command}")
+
         response = subprocess.run(curl_command, capture_output=True)
         if response.returncode == 0:
             nfo_response_content = response.stdout
+
+            # Log raw response
+            logging.debug(f"Raw NFO response: {nfo_response_content.decode('utf-8', errors='ignore')}")
+
             if nfo_response_content:
-                # Log raw response
-                logging.debug(f"Raw NFO response: {nfo_response_content.decode('utf-8', errors='ignore')}")
+                try:
+                    data = io.BytesIO(nfo_response_content)
 
-                data = io.BytesIO(nfo_response_content)
+                    view = View()
+                    if is_scene:
+                        srrdb_button = Button(label="View on srrDB", url=f"https://www.srrdb.com/release/details/{release_info['dirname']}")
+                        view.add_item(srrdb_button)
 
-                view = View()
-                if is_scene:
-                    srrdb_button = Button(label="View on srrDB", url=f"https://www.srrdb.com/release/details/{release_info['dirname']}")
-                    view.add_item(srrdb_button)
+                    xrel_button = Button(label="View on xREL", url=release_url)
+                    view.add_item(xrel_button)
 
-                xrel_button = Button(label="View on xREL", url=release_url)
-                view.add_item(xrel_button)
-
-                await ctx.send(file=discord.File(data, f"{release_info['id']}_nfo.png"), view=view)
+                    await ctx.send(file=discord.File(data, f"{release_info['id']}_nfo.png"), view=view)
+                except Exception as e:
+                    logging.error(f"Failed to process NFO response: {e}")
+                    await ctx.send("Failed to process NFO response.")
             else:
                 await ctx.send(f"NFO not found for release ID {release_info['id']}.")
         else:
