@@ -178,7 +178,10 @@ class getnfo(commands.Cog):
             await ctx.send("Failed to obtain valid authentication token.")
             return
 
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "User-Agent": "curl/8.11.1"  # Fake User-Agent to avoid cloudflare detection
+        }
 
         if not (await self.fetch_srrdb(ctx, dirname)):
 
