@@ -95,6 +95,9 @@ class getnfo(commands.Cog):
         if response.returncode == 0:
             nfo_response_content = response.stdout
             if nfo_response_content:
+                # Log raw response
+                logging.debug(f"Raw NFO response: {nfo_response_content.decode('utf-8', errors='ignore')}")
+
                 data = io.BytesIO(nfo_response_content)
 
                 view = View()
@@ -201,8 +204,6 @@ class getnfo(commands.Cog):
                         is_scene = (nfo_type == "release")
                         await self.fetch_xrel(ctx, headers, release_info, nfo_type, release_url, is_scene)
                         break
-                    else:
-                        await ctx.send("link_href not found in release_info.")
                 elif response.returncode == 404:
                     if nfo_type == "p2p_rls":
                         await ctx.send("Arr, Jerome konnte für deinen Release leider weit und breit keine NFO finden! Nicht mal in Davy Jones' Spind...")
