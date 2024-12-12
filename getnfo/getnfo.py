@@ -38,10 +38,11 @@ class getnfo(commands.Cog):
                 line.split("=")[0].strip(): line.split("=")[1].strip() for line in lines
             }
         return credentials.get("CLIENT_ID"), credentials.get("CLIENT_SECRET")
-
+        
     async def get_token(self):
         """Fetches or reuses the OAuth2 token using Client Credentials Grant."""
         current_time = asyncio.get_event_loop().time()
+        print(f"Current time: {current_time}")
         if not self.token or current_time >= self.token_expires_at:
             async with aiohttp.ClientSession() as session:
                 auth = aiohttp.BasicAuth(self.client_id, self.client_secret)
@@ -49,11 +50,14 @@ class getnfo(commands.Cog):
                 async with session.post(
                         self.api_base_url + "/oauth2/token", auth=auth, data=data
                 ) as response:
+                    print(f"Response status: {response.status}")
                     if response.status == 200:
                         token_data = await response.json()
                         self.token = token_data.get("access_token")
                         expires_in = token_data.get("expires_in", 3600)
                         self.token_expires_at = current_time + expires_in - 60  # Refresh 1 minute before expiration
+                        print(f"Token: {self.token}")
+                        print(f"Token expires at: {self.token_expires_at}")
                         if not self.token or self.token.count(".") != 2:
                             print("Invalid token format:", self.token)
                             self.token = None  # Reset token if invalid
