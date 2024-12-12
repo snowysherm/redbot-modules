@@ -165,7 +165,6 @@ class getnfo(commands.Cog):
 
             return False
 
-
     @commands.command()
     async def nfo(self, ctx, *, dirname: str):
         await ctx.typing()
@@ -184,13 +183,21 @@ class getnfo(commands.Cog):
                 response = subprocess.run(curl_command, capture_output=True)
                 if response.returncode == 0:
                     release_info = response.stdout.decode('utf-8')
-                    if release_info:
+                    try:
                         release_info = json.loads(release_info)
+                    except json.JSONDecodeError:
+                        await ctx.send("Failed to parse JSON response.")
+                        return
+                    
+                    logging.debug("Release info:", release_info)
+                    
+                    if "link_href" in release_info:
                         release_url = release_info["link_href"]
-                        if "id" in release_info:
-                            is_scene = (nfo_type == "release")
-                            await self.fetch_xrel(ctx, headers, release_info, nfo_type, release_url, is_scene)
-                            break
+                        is_scene = (nfo_type == "release")
+                        await self.fetch_xrel(ctx, headers, release_info, nfo_type, release_url, is_scene)
+                        break
+                    else:
+                        await ctx.send("link_href not found in release_info.")
                 elif response.returncode == 404:
                     if nfo_type == "p2p_rls":
                         await ctx.send("Arr, Jerome konnte für deinen Release leider weit und breit keine NFO finden! Nicht mal in Davy Jones' Spind...")
