@@ -6,13 +6,11 @@ import aiohttp
 import asyncio
 import subprocess
 import requests
-import logging
-import json
 from redbot.core import commands
 from discord.ui import View, Button
 import io  # Needed for byte stream handling
+import json
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s')
 
 class getnfo(commands.Cog):
     """Cog to fetch NFOs for warez releases using the xrel.to and predb.net APIs"""
@@ -41,7 +39,7 @@ class getnfo(commands.Cog):
                 line.split("=")[0].strip(): line.split("=")[1].strip() for line in lines
             }
         return credentials.get("CLIENT_ID"), credentials.get("CLIENT_SECRET")
-        
+
     async def get_token(self):
         """Fetches or reuses the OAuth2 token using Client Credentials Grant with curl."""
         current_time = asyncio.get_event_loop().time()
@@ -78,43 +76,38 @@ class getnfo(commands.Cog):
                 logging.error(f"Error occurred during curl command: {e}")
                 self.token = None
         return self.token
-        
+
     async def schedule_token_refresh(self):
         """Schedule token refresh every hour."""
         while True:
             await self.get_token()
             await asyncio.sleep(3600)  # Sleep for 1 hour
 
+
     async def fetch_xrel(self, ctx, headers, release_info, nfo_type, release_url, is_scene):
         """Fetch and send the NFO image from the API."""
         nfo_url = f"{self.api_base_url}/nfo/{nfo_type}.json"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
-                    nfo_url, headers=headers, params={"id": release_info["id"]}
-            ) as nfo_response:
-                if nfo_response.status == 200:
-                    # Correct handling for image response
-                    data = io.BytesIO(await nfo_response.read())
+        curl_command = ["curl", "-s", "-H", f"Authorization: Bearer {headers['Authorization']}", "-G", nfo_url, "--data-urlencode", f"id={release_info['id']}"]
+        
+        response = subprocess.run(curl_command, capture_output=True)
+        if response.returncode == 0:
+            nfo_response_content = response.stdout
+            if nfo_response_content:
+                data = io.BytesIO(nfo_response_content)
 
-                    view = View()
-                    if is_scene:
-                        srrdb_button = Button(label="View on srrDB",
-                                              url=f"https://www.srrdb.com/release/details/{release_info['dirname']}")
-                        view.add_item(srrdb_button)
+                view = View()
+                if is_scene:
+                    srrdb_button = Button(label="View on srrDB", url=f"https://www.srrdb.com/release/details/{release_info['dirname']}")
+                    view.add_item(srrdb_button)
 
-                    xrel_button = Button(label="View on xREL", url=release_url)
-                    view.add_item(xrel_button)
+                xrel_button = Button(label="View on xREL", url=release_url)
+                view.add_item(xrel_button)
 
-                    await ctx.send(
-                        file=discord.File(data, f"{release_info['id']}_nfo.png"),
-                        view=view,
-                    )
-                elif nfo_response.status == 404:
-                    await ctx.send(f"NFO not found for release ID {release_info['id']}.")
-                else:
-                    await ctx.send(
-                        f"Failed to retrieve NFO: {await nfo_response.text()} Status Code: {nfo_response.status}"
-                    )
+                await ctx.send(file=discord.File(data, f"{release_info['id']}_nfo.png"), view=view)
+            else:
+                await ctx.send(f"NFO not found for release ID {release_info['id']}.")
+        else:
+            await ctx.send(f"Failed to retrieve NFO. Status Code: {response.returncode}")
 
     async def fetch_srrdb(self, ctx, release: str):
         # First, construct the URL to fetch NFO link
@@ -178,26 +171,28 @@ class getnfo(commands.Cog):
         if not token:
             await ctx.send("Failed to obtain valid authentication token.")
             return
-    
-        headers = {
-            "Authorization": f"Bearer {token}"
-        }
-    
+
+        headers = {"Authorization": f"Bearer {token}"}
+
         if not (await self.fetch_srrdb(ctx, dirname)):
             for type_path, nfo_type in [("/release/info.json", "release"), ("/p2p/rls_info.json", "p2p_rls")]:
-                response = requests.get(self.api_base_url + type_path, headers=headers, params={"dirname": dirname})
-                if response.status_code == 200:
-                    release_info = response.json()
-                    release_url = release_info["link_href"]
-                    if "id" in release_info:
-                        is_scene = nfo_type == "release"
-                        await self.fetch_xrel(ctx, headers, release_info, nfo_type, release_url, is_scene)
-                        break
-                elif response.status_code == 404:
+                url = self.api_base_url + type_path
+                curl_command = ["curl", "-s", "-H", f"Authorization: Bearer {token}", "-G", url, "--data-urlencode", f"dirname={dirname}"]
+                
+                response = subprocess.run(curl_command, capture_output=True)
+                if response.returncode == 0:
+                    release_info = response.stdout.decode('utf-8')
+                    if release_info:
+                        release_info = json.loads(release_info)
+                        release_url = release_info["link_href"]
+                        if "id" in release_info:
+                            is_scene = (nfo_type == "release")
+                            await self.fetch_xrel(ctx, headers, release_info, nfo_type, release_url, is_scene)
+                            break
+                elif response.returncode == 404:
                     if nfo_type == "p2p_rls":
                         await ctx.send("Arr, Jerome konnte für deinen Release leider weit und breit keine NFO finden! Nicht mal in Davy Jones' Spind...")
                     continue
 
-
-def setup(bot):
-    bot.add_cog(getnfo(bot))
+    def setup(bot):
+        bot.add_cog(getnfo(bot))
