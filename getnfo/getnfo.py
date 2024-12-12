@@ -180,6 +180,8 @@ class getnfo(commands.Cog):
                 url = self.api_base_url + type_path
                 curl_command = ["curl", "-s", "-H", f"Authorization: Bearer {token}", "-G", url, "--data-urlencode", f"dirname={dirname}"]
                 
+                logging.debug(' '.join(curl_command))
+                
                 response = subprocess.run(curl_command, capture_output=True)
                 if response.returncode == 0:
                     release_info = response.stdout.decode('utf-8')
