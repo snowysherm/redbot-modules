@@ -49,6 +49,10 @@ class getnfo(commands.Cog):
             async with aiohttp.ClientSession() as session:
                 auth = aiohttp.BasicAuth(self.client_id, self.client_secret)
                 data = {"grant_type": "client_credentials", "scope": "viewnfo"}
+                logging.debug(f"Request URL: {self.api_base_url}/oauth2/token")
+                logging.debug(f"Request data: {data}")
+                logging.debug(f"Request auth: {auth}")
+
                 async with session.post(
                         self.api_base_url + "/oauth2/token", auth=auth, data=data
                 ) as response:
@@ -65,6 +69,7 @@ class getnfo(commands.Cog):
                             self.token = None  # Reset token if invalid
                     else:
                         logging.error(f"Failed to retrieve token: {response.status}")
+                        logging.error(f"Response text: {await response.text()}")
                         self.token = None
         return self.token
         
