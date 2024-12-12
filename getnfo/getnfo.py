@@ -93,7 +93,7 @@ class getnfo(commands.Cog):
         # Construct the curl command
         curl_command = [
             "curl", "-s",
-            "-H", f"Authorization: Bearer {headers['Authorization']}",
+            "-H", f"Authorization: {headers['Authorization']}",
             "-G", nfo_url,
             "--data-urlencode", f"id={release_info['id']}"
         ]
