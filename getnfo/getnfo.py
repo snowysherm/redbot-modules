@@ -89,39 +89,42 @@ class getnfo(commands.Cog):
     async def fetch_xrel(self, ctx, headers, release_info, nfo_type, release_url, is_scene):
         """Fetch and send the NFO image from the API."""
         nfo_url = f"{self.api_base_url}/nfo/{nfo_type}.json"
-        curl_command = ["curl", "-s", "-H", f"Authorization: Bearer {headers['Authorization']}", "-G", nfo_url, "--data-urlencode", f"id={release_info['id']}"]
+        
+        # Construct the curl command
+        curl_command = [
+            "curl", "-s",
+            "-H", f"Authorization: Bearer {headers['Authorization']}",
+            "-G", nfo_url,
+            "--data-urlencode", f"id={release_info['id']}"
+        ]
         
         # Log the curl command
         log_command = ' '.join(curl_command)
         logging.debug(f"Curl command: {log_command}")
-
+        
+        # Execute the curl command
         response = subprocess.run(curl_command, capture_output=True)
-        if response.returncode == 0:
-            nfo_response_content = response.stdout
+        nfo_response_content = response.stdout
 
-            # Log raw response
-            logging.debug(f"Raw NFO response: {nfo_response_content.decode('utf-8', errors='ignore')}")
+        # Log raw response
+        logging.debug(f"Raw NFO response: {nfo_response_content.decode('utf-8', errors='ignore')}")
+        
+        if response.returncode == 0 and nfo_response_content:
+            try:
+                data = io.BytesIO(nfo_response_content)
+                view = View()
+                if is_scene:
+                    srrdb_button = Button(label="View on srrDB", url=f"https://www.srrdb.com/release/details/{release_info['dirname']}")
+                    view.add_item(srrdb_button)
+                xrel_button = Button(label="View on xREL", url=release_url)
+                view.add_item(xrel_button)
 
-            if nfo_response_content:
-                try:
-                    data = io.BytesIO(nfo_response_content)
-
-                    view = View()
-                    if is_scene:
-                        srrdb_button = Button(label="View on srrDB", url=f"https://www.srrdb.com/release/details/{release_info['dirname']}")
-                        view.add_item(srrdb_button)
-
-                    xrel_button = Button(label="View on xREL", url=release_url)
-                    view.add_item(xrel_button)
-
-                    await ctx.send(file=discord.File(data, f"{release_info['id']}_nfo.png"), view=view)
-                except Exception as e:
-                    logging.error(f"Failed to process NFO response: {e}")
-                    await ctx.send("Failed to process NFO response.")
-            else:
-                await ctx.send(f"NFO not found for release ID {release_info['id']}.")
+                await ctx.send(file=discord.File(data, f"{release_info['id']}_nfo.png"), view=view)
+            except Exception as e:
+                logging.error(f"Failed to process NFO response: {e}")
+                await ctx.send("Failed to process NFO response.")
         else:
-            await ctx.send(f"Failed to retrieve NFO. Status Code: {response.returncode}")
+            await ctx.send(f"NFO not found for release ID {release_info['id']} or failed to retrieve NFO. Status Code: {response.returncode}")
 
     async def fetch_srrdb(self, ctx, release: str):
         # First, construct the URL to fetch NFO link
