@@ -1,8 +1,6 @@
 import os
-import tarfile
 
 import discord
-import aiohttp
 import asyncio
 import subprocess
 import requests
@@ -89,7 +87,7 @@ class getnfo(commands.Cog):
     async def fetch_xrel(self, ctx, headers, release_info, nfo_type, release_url, is_scene):
         """Fetch and send the NFO image from the API."""
         nfo_url = f"{self.api_base_url}/nfo/{nfo_type}.json"
-        
+
         # Construct the curl command
         curl_command = [
             "curl", "-s",
@@ -97,16 +95,16 @@ class getnfo(commands.Cog):
             "-G", nfo_url,
             "--data-urlencode", f"id={release_info['id']}"
         ]
-        
+
         # Log the curl command
         log_command = ' '.join(curl_command)
         logging.debug(f"Curl command: {log_command}")
-        
+
         # Execute the curl command
         response = subprocess.run(curl_command, capture_output=True)
         nfo_response_content = response.stdout
 
-        
+
         if response.returncode == 0 and nfo_response_content:
             try:
                 data = io.BytesIO(nfo_response_content)
@@ -125,7 +123,6 @@ class getnfo(commands.Cog):
             await ctx.send(f"NFO not found for release ID {release_info['id']} or failed to retrieve NFO. Status Code: {response.returncode}")
 
     async def fetch_srrdb(self, ctx, release: str):
-        # First, construct the URL to fetch NFO link
         url = f"https://api.srrdb.com/v1/nfo/{release}"
 
         response = requests.get(url)
@@ -182,42 +179,37 @@ class getnfo(commands.Cog):
     async def nfo(self, ctx, *, dirname: str):
         await ctx.typing()
         token = await self.get_token()
+
         if not token:
             await ctx.send("Failed to obtain valid authentication token.")
             return
 
         headers = {"Authorization": f"Bearer {token}"}
+        found = False
 
         if not (await self.fetch_srrdb(ctx, dirname)):
             for type_path, nfo_type in [("/release/info.json", "release"), ("/p2p/rls_info.json", "p2p_rls")]:
                 url = self.api_base_url + type_path
                 curl_command = ["curl", "-s", "-H", f"Authorization: Bearer {token}", "-G", url, "--data-urlencode", f"dirname={dirname}"]
-                
-
                 response = subprocess.run(curl_command, capture_output=True)
-                if response.returncode == 0:
-                    raw_response = response.stdout.decode('utf-8')
-                    
-                    # Log raw response
-                    logging.debug(f"Raw response: {raw_response}")
 
+                if response.returncode == 0:
                     try:
-                        release_info = json.loads(raw_response)
+                        release_info = json.loads(response.stdout.decode('utf-8'))
+                        if "ext_info" in release_info and "link_href" in release_info["ext_info"]:
+                            release_url = release_info["ext_info"]["link_href"]
+                            is_scene = (nfo_type == "release")
+                            await self.fetch_xrel(ctx, headers, release_info, nfo_type, release_url, is_scene)
+                            found = True
+                            break
                     except json.JSONDecodeError:
-                        await ctx.send("Failed to parse JSON response.")
-                        return
-                    
-                    logging.debug(f"Release info: {release_info}")
-                    
-                    if "ext_info" in release_info and "link_href" in release_info["ext_info"]:
-                        release_url = release_info["ext_info"]["link_href"]
-                        is_scene = (nfo_type == "release")
-                        await self.fetch_xrel(ctx, headers, release_info, nfo_type, release_url, is_scene)
-                        break
-                elif response.returncode == 404:
-                    if nfo_type == "p2p_rls":
-                        await ctx.send("Arr, Jerome konnte für deinen Release leider weit und breit keine NFO finden! Nicht mal in Davy Jones' Spind...")
-                    continue
+                        continue
+
+        if not found:
+            await ctx.send("```Arrr! ⚓️ Kein Release im sichtbaren Horizont, mein Freund! 🏴‍☠️ Versuche es doch mal "
+                           "mit einem anderen Suchbegriff oder check die Crew von einer anderen Release-Group. "
+                           "Vielleicht ist FuN an Bord!? 😆```")
+
 
     def setup(bot):
         bot.add_cog(getnfo(bot))
