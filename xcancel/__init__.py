@@ -1,5 +1,5 @@
-from .xcancel import xcancel
+from .xcancel import XCancel
 
 
 async def setup(bot):
-    await bot.add_cog(xcancel(bot))
+    await bot.add_cog(XCancel(bot))

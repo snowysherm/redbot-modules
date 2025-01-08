@@ -1,7 +1,8 @@
 from redbot.core import commands
 import re
 
-class xcancel(commands.Cog):
+
+class XCancel(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
@@ -17,5 +18,6 @@ class xcancel(commands.Cog):
                 xcancel_link = x_link.replace("x.com", "xcancel.com")
                 await message.reply(xcancel_link)
 
+
 async def setup(bot):
-    await bot.add_cog(xcancel(bot))
+    await bot.add_cog(XCancel(bot))
