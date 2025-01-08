@@ -21,6 +21,7 @@ class XCancel(commands.Cog):
                 await message.reply("<:warndreieck:1304388231835422780>", allowed_mentions=discord.AllowedMentions.none())
                 return
             await message.reply(reply_message, allowed_mentions=discord.AllowedMentions.none())
+            await message.edit(suppress=True)
 
 
 async def setup(bot):
