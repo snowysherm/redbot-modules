@@ -1,5 +1,6 @@
 from redbot.core import commands
 import re
+import discord
 
 
 class XCancel(commands.Cog):
@@ -16,7 +17,7 @@ class XCancel(commands.Cog):
         if matches := re.findall(pattern, message.content):
             for x_link in matches:
                 xcancel_link = x_link.replace("x.com", "xcancel.com")
-                await message.reply(xcancel_link)
+                await message.reply(xcancel_link, allowed_mentions=discord.AllowedMentions.none())
 
 
 async def setup(bot):
