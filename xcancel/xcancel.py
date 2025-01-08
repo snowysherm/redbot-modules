@@ -15,9 +15,8 @@ class XCancel(commands.Cog):
 
         pattern = r'https?://(?:www\.)?x\.com\S+'
         if matches := re.findall(pattern, message.content):
-            for x_link in matches:
-                xcancel_link = x_link.replace("x.com", "xcancel.com")
-                await message.reply(xcancel_link, allowed_mentions=discord.AllowedMentions.none())
+            xcancel_links = [x_link.replace("x.com", "xcancel.com") for x_link in matches]
+            await message.reply(" ".join(xcancel_links), allowed_mentions=discord.AllowedMentions.none())
 
 
 async def setup(bot):
