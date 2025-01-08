@@ -16,6 +16,9 @@ class XCancel(commands.Cog):
         pattern = r'https?://(?:www\.)?x\.com\S+'
         if matches := re.findall(pattern, message.content):
             xcancel_links = [x_link.replace("x.com", "xcancel.com") for x_link in matches]
+            if len(xcancel_links) > 2000:
+                await message.reply("<:warndreieck:1304388231835422780>", allowed_mentions=discord.AllowedMentions.none())
+                return
             await message.reply(" ".join(xcancel_links), allowed_mentions=discord.AllowedMentions.none())
 
 
