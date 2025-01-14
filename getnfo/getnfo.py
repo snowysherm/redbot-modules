@@ -1,14 +1,14 @@
 import os
-
 import discord
 import asyncio
 import subprocess
 import requests
 from redbot.core import commands
 from discord.ui import View, Button
-import io  # Needed for byte stream handling
+from discord import app_commands
 import json
 import logging
+import random
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s')
 
@@ -24,14 +24,19 @@ class getnfo(commands.Cog):
         self.token = None
         self.token_expires_at = 0  # Timestamp when the token expires
         self.bot.loop.create_task(self.schedule_token_refresh())  # Schedule token refresh
-        self.no_release_found_message = "```Arrr! ⚓️ Kein Release im sichtbaren Horizont, mein Freund! 🏴‍☠️ Versuche es doch mal "
-        "mit einem anderen Suchbegriff oder check die Crew von einer anderen Release-Group. "
-        "Vielleicht ist FuN an Bord!? 😆```"
+        self.no_release_found_message = (
+            "```Arrr! ⚓️ Kein Release im sichtbaren Horizont, mein Freund! 🏴‍☠️ Versuche es doch mal "
+            "mit einem anderen Suchbegriff oder check die Crew von einer anderen Release-Group. "
+            "Vielleicht ist FuN an Bord!? 😆```")
+        self.no_release_found_message_easter_egg = ("```Ey, was los? Kein Release gefunden, du Opfer! Wahrscheinlich "
+                                                    "haste wieder irgendwas falsch gemacht, du Kiosk-König. Guck "
+                                                    "nochmal richtig oder lass es einfach – Nuttööö!```")
 
-    @commands.command()
+    @commands.hybrid_command(name="nfo", description="Fetch NFO via xREL/srrDB")
+    @app_commands.describe(release="Release name")
     async def nfo(self, ctx, *, release: str):
         await ctx.typing()
-        api_responses = await self.fetch_responses(self, ctx, release)
+        api_responses = await self.fetch_responses(ctx, release)
         await self.send_nfo(ctx, api_responses, release)
 
     async def fetch_responses(self, ctx, release):
@@ -96,14 +101,18 @@ class getnfo(commands.Cog):
 
     async def send_nfo(self, ctx, api_responses, release):
         if api_responses['xrel']['success']:
-            await self.send_xrel_nfo(ctx, api_responses)
+            await self.send_xrel_nfo(ctx, api_responses, release)
         elif api_responses['srrdb']['success']:
             await self.send_srrdb_nfo(ctx, api_responses, release)
         else:
-            await ctx.send(self.no_release_found_message)
+            chance = random.randint(1, 100)
+            if chance <= 10:
+                await ctx.send(self.no_release_found_message_easter_egg)
+            else:
+                await ctx.send(self.no_release_found_message)
             return
 
-    async def send_xrel_nfo(self, ctx, api_responses):
+    async def send_xrel_nfo(self, ctx, api_responses, release):
         data = api_responses['xrel']['data']
         headers = {"Authorization": f"Bearer {await self.get_token()}"}
         nfo_url = f"{self.xrel_api_base_url}/nfo/{data['nfo_type']}.json"
@@ -123,14 +132,33 @@ class getnfo(commands.Cog):
 
         if response.returncode == 0 and nfo_response_content:
             try:
-                bytes_io_data = io.BytesIO(nfo_response_content)
                 view = View()
-
                 if api_responses['srrdb']['button']:
                     view.add_item(api_responses['srrdb']['button'])
                 view.add_item(api_responses['xrel']['button'])
 
-                await ctx.send(file=discord.File(bytes_io_data, f"{data['release_info']['id']}_nfo.png"), view=view)
+                file_name = f"{data['release_info']['id']}_nfo"
+                file_path = f"/tmp/{file_name}.png"
+
+                with open(file_path, "wb") as temp_file:
+                    temp_file.write(nfo_response_content)
+
+                if data['nfo_type'] == 'p2p_rls':
+                    release_type = 'P2P'
+                    color = discord.Color.from_rgb(41, 134, 204)
+                else:
+                    release_type = "scene"
+                    color = discord.Color.from_rgb(244, 67, 54)
+
+                await self.send_embed_with_image(ctx, file_path.replace(".png", ""),
+                                                 release,
+                                                 view,
+                                                 source="[xREL](https://www.xrel.to/)",
+                                                 release_type=release_type,
+                                                 color=color
+                                                 )
+
+                os.remove(file_path)
             except Exception as e:
                 logging.error(f"Failed to process NFO response: {e}")
                 await ctx.send("Failed to process NFO response.")
@@ -146,8 +174,9 @@ class getnfo(commands.Cog):
 
             nfo_response = requests.get(response.json()['nfolink'][0])
             current_directory = os.path.dirname(os.path.abspath(__file__))
-            file_name = 'downloaded_nfo'
+            file_name = release
             file_path = os.path.join(current_directory, file_name)
+
             with open(file_path + '.nfo', "wb") as file:
                 file.write(nfo_response.content)
 
@@ -174,18 +203,40 @@ class getnfo(commands.Cog):
             view = View()
             view.add_item(api_responses['srrdb']['button'])
 
-            with open(file_path + '.png', "rb") as fp:
-                await ctx.send(
-                    file=discord.File(fp, 'downloaded_nfo.png'),
-                    view=view,
-                )
+            await self.send_embed_with_image(ctx,
+                                             file_path,
+                                             file_name, view,
+                                             source="[srrDB](https://www.srrdb.com/)",
+                                             release_type="Scene",
+                                             color=discord.Color.from_rgb(244, 67, 54)
+                                             )
+
             os.remove(nfo_file_path + '.nfo')
             os.remove(nfo_file_path + '.png')
 
+    async def send_embed_with_image(self, ctx, file_path, file_name, view, source, release_type, color):
+        embed = discord.Embed(
+            title=f"{file_name}",
+            color=color
+        )
+
+        embed.set_image(url=f"attachment://{file_name}.png")
+
+        embed.add_field(name="Comments", value="N/A", inline=True)
+        embed.add_field(name="Release Type", value=release_type, inline=True)
+        embed.add_field(name="Source", value=source, inline=False)
+
+        with open(file_path + '.png', "rb") as fp:
+            await ctx.send(
+                file=discord.File(fp, f"{file_name}.png"),
+                embed=embed,
+                view=view,
+            )
+
+    # XRel token oauth zeugs
     def load_credentials(self):
-        """Load client ID and client secret from a .env file."""
-        script_dir = os.path.dirname(__file__)  # Directory of the current script
-        env_path = os.path.join(script_dir, ".env")  # Path to the .env file in the same directory
+        script_dir = os.path.dirname(__file__)
+        env_path = os.path.join(script_dir, ".env")
         if not os.path.exists(env_path):
             print(
                 f"No .env file found at {env_path}. Ensure the .env file is in the correct directory."
@@ -241,7 +292,6 @@ class getnfo(commands.Cog):
         while True:
             await self.get_token()
             await asyncio.sleep(3600)  # Sleep for 1 hour
-
 
     def setup(bot):
         bot.add_cog(getnfo(bot))
