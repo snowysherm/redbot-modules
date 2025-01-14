@@ -12,16 +12,175 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s')
 
+
 class getnfo(commands.Cog):
     """Cog to fetch NFOs for warez releases using the xrel.to and predb.net APIs"""
 
     def __init__(self, bot):
         self.bot = bot
         self.client_id, self.client_secret = self.load_credentials()
-        self.api_base_url = "https://api.xrel.to/v2"
+        self.xrel_api_base_url = "https://api.xrel.to/v2"
+        self.srrdb_api_base_url = "https://api.srrdb.com/v1/nfo/"
         self.token = None
         self.token_expires_at = 0  # Timestamp when the token expires
         self.bot.loop.create_task(self.schedule_token_refresh())  # Schedule token refresh
+        self.no_release_found_message = "```Arrr! ⚓️ Kein Release im sichtbaren Horizont, mein Freund! 🏴‍☠️ Versuche es doch mal "
+        "mit einem anderen Suchbegriff oder check die Crew von einer anderen Release-Group. "
+        "Vielleicht ist FuN an Bord!? 😆```"
+
+    @commands.command()
+    async def nfo(self, ctx, *, release: str):
+        await ctx.typing()
+        api_responses = await self.fetch_responses(self, ctx, release)
+        await self.send_nfo(ctx, api_responses, release)
+
+    async def fetch_responses(self, ctx, release):
+        responses = {
+            'srrdb': await self.fetch_srrdb_response(ctx, release),
+            'xrel': await self.fetch_xrel_response(ctx, release)
+        }
+        return responses
+
+    async def fetch_srrdb_response(self, ctx, release):
+        url = f"{self.srrdb_api_base_url}{release}"
+
+        response = requests.get(url)
+
+        if response.status_code == 200:
+            if response.json()['release'] is None:
+                return {
+                    'success': None,
+                    'button': False
+                }
+
+        button = Button(label="View on srrDB", url=f"https://www.srrdb.com/release/details/{release}")
+
+        return {
+            'success': True,
+            'button': button
+        }
+
+    async def fetch_xrel_response(self, ctx, release):
+        token = await self.get_token()
+
+        if not token:
+            await ctx.send("Failed to obtain valid authentication token.")
+            return
+
+        for type_path, nfo_type in [("/release/info.json", "release"), ("/p2p/rls_info.json", "p2p_rls")]:
+            url = self.xrel_api_base_url + type_path
+            curl_command = ["curl", "-s", "-H", f"Authorization: Bearer {token}", "-G", url, "--data-urlencode",
+                            f"dirname={release}"]
+            response = subprocess.run(curl_command, capture_output=True)
+
+            if response.returncode == 0:
+                try:
+                    release_info = json.loads(response.stdout.decode('utf-8'))
+                    if "ext_info" in release_info and "link_href" in release_info["ext_info"]:
+                        release_url = release_info["link_href"]
+                        button = Button(label="View on xREL", url=release_url)
+                        return {
+                            'success': True,
+                            'button': button,
+                            'data': {
+                                'release_info': release_info,
+                                'nfo_type': nfo_type,
+                            }
+                        }
+                except json.JSONDecodeError:
+                    continue
+        return {
+            'success': False,
+            'button': None
+        }
+
+    async def send_nfo(self, ctx, api_responses, release):
+        if api_responses['xrel']['success']:
+            await self.send_xrel_nfo(ctx, api_responses)
+        elif api_responses['srrdb']['success']:
+            await self.send_srrdb_nfo(ctx, api_responses, release)
+        else:
+            await ctx.send(self.no_release_found_message)
+            return
+
+    async def send_xrel_nfo(self, ctx, api_responses):
+        data = api_responses['xrel']['data']
+        headers = {"Authorization": f"Bearer {await self.get_token()}"}
+        nfo_url = f"{self.xrel_api_base_url}/nfo/{data['nfo_type']}.json"
+
+        curl_command = [
+            "curl", "-s",
+            "-H", f"Authorization: {headers['Authorization']}",
+            "-G", nfo_url,
+            "--data-urlencode", f"id={data['release_info']['id']}"
+        ]
+
+        log_command = ' '.join(curl_command)
+        logging.debug(f"Curl command: {log_command}")
+
+        response = subprocess.run(curl_command, capture_output=True)
+        nfo_response_content = response.stdout
+
+        if response.returncode == 0 and nfo_response_content:
+            try:
+                bytes_io_data = io.BytesIO(nfo_response_content)
+                view = View()
+
+                if api_responses['srrdb']['button'] is not None:
+                    view.add_item(api_responses['srrdb']['button'])
+                view.add_item(api_responses['xrel']['button'])
+
+                await ctx.send(file=discord.File(bytes_io_data, f"{data['release_info']['id']}_nfo.png"), view=view)
+            except Exception as e:
+                logging.error(f"Failed to process NFO response: {e}")
+                await ctx.send("Failed to process NFO response.")
+
+    async def send_srrdb_nfo(self, ctx, api_responses, release):
+        url = f"https://api.srrdb.com/v1/nfo/{release}"
+
+        response = requests.get(url)
+
+        if response.status_code == 200:
+            if response.json()['release'] is None:
+                return
+
+            nfo_response = requests.get(response.json()['nfolink'][0])
+            current_directory = os.path.dirname(os.path.abspath(__file__))
+            file_name = 'downloaded_nfo'
+            file_path = os.path.join(current_directory, file_name)
+            with open(file_path + '.nfo', "wb") as file:
+                file.write(nfo_response.content)
+
+            infekt_exe = os.path.join(current_directory, "iNFEKT", "infekt-cli")
+            nfo_file_path = os.path.join(current_directory, f"{file_name}")
+
+            flags_and_arguments = [
+                '--png', nfo_file_path + '.nfo',
+                '-W', '15',
+                '-H', '25',
+                '-R', '15',
+                '-G', '808080'
+            ]
+
+            try:
+                result = subprocess.run([infekt_exe] + flags_and_arguments, capture_output=True, text=True)
+
+                print("Return code:", result.returncode)
+                print("Default output:", result.stdout)
+                print("Error output:", result.stderr)
+            except Exception as e:
+                print(f"Error occurred: {e}")
+
+            view = View()
+            view.add_item(api_responses['srrdb']['button'])
+
+            with open(file_path + '.png', "rb") as fp:
+                await ctx.send(
+                    file=discord.File(fp, 'downloaded_nfo.png'),
+                    view=view,
+                )
+            os.remove(nfo_file_path + '.nfo')
+            os.remove(nfo_file_path + '.png')
 
     def load_credentials(self):
         """Load client ID and client secret from a .env file."""
@@ -48,7 +207,7 @@ class getnfo(commands.Cog):
             curl_command = [
                 "curl",
                 "-X", "POST",
-                f"{self.api_base_url}/oauth2/token",
+                f"{self.xrel_api_base_url}/oauth2/token",
                 "--data", "grant_type=client_credentials",
                 "--data", "scope=viewnfo",
                 "--user", f"{self.client_id}:{self.client_secret}"
@@ -82,133 +241,6 @@ class getnfo(commands.Cog):
         while True:
             await self.get_token()
             await asyncio.sleep(3600)  # Sleep for 1 hour
-
-
-    async def fetch_xrel(self, ctx, headers, release_info, nfo_type, release_url, is_scene):
-        """Fetch and send the NFO image from the API."""
-        nfo_url = f"{self.api_base_url}/nfo/{nfo_type}.json"
-
-        # Construct the curl command
-        curl_command = [
-            "curl", "-s",
-            "-H", f"Authorization: {headers['Authorization']}",
-            "-G", nfo_url,
-            "--data-urlencode", f"id={release_info['id']}"
-        ]
-
-        # Log the curl command
-        log_command = ' '.join(curl_command)
-        logging.debug(f"Curl command: {log_command}")
-
-        # Execute the curl command
-        response = subprocess.run(curl_command, capture_output=True)
-        nfo_response_content = response.stdout
-
-
-        if response.returncode == 0 and nfo_response_content:
-            try:
-                data = io.BytesIO(nfo_response_content)
-                view = View()
-                if is_scene:
-                    srrdb_button = Button(label="View on srrDB", url=f"https://www.srrdb.com/release/details/{release_info['dirname']}")
-                    view.add_item(srrdb_button)
-                xrel_button = Button(label="View on xREL", url=release_url)
-                view.add_item(xrel_button)
-
-                await ctx.send(file=discord.File(data, f"{release_info['id']}_nfo.png"), view=view)
-            except Exception as e:
-                logging.error(f"Failed to process NFO response: {e}")
-                await ctx.send("Failed to process NFO response.")
-        else:
-            await ctx.send(f"NFO not found for release ID {release_info['id']} or failed to retrieve NFO. Status Code: {response.returncode}")
-
-    async def fetch_srrdb(self, ctx, release: str):
-        url = f"https://api.srrdb.com/v1/nfo/{release}"
-
-        response = requests.get(url)
-
-        if response.status_code == 200:
-            if response.json()['release'] is None:
-                return False
-            nfo_response = requests.get(response.json()['nfolink'][0])
-            current_directory = os.path.dirname(os.path.abspath(__file__))
-            file_name = 'downloaded_nfo'
-            file_path = os.path.join(current_directory, file_name)
-            with open(file_path + '.nfo', "wb") as file:
-                file.write(nfo_response.content)
-
-            infekt_exe = os.path.join(current_directory, "iNFEKT", "infekt-cli")
-            nfo_file_path = os.path.join(current_directory, f"{file_name}")
-
-            flags_and_arguments = [
-                '--png', nfo_file_path + '.nfo',
-                '-W', '15',
-                '-H', '25',
-                '-R', '15',
-                '-G', '808080'
-            ]
-
-            try:
-                result = subprocess.run([infekt_exe] + flags_and_arguments, capture_output=True, text=True)
-
-                print("Return code:", result.returncode)
-                print("Default output:", result.stdout)
-                print("Error output:", result.stderr)
-            except Exception as e:
-                print(f"Error occurred: {e}")
-
-            view = View()
-            button = Button(label="View on srrDB", url=f"https://www.srrdb.com/release/details/{release}")
-            view.add_item(button)
-            with open(file_path + '.png', "rb") as fp:
-                await ctx.send(
-                    file=discord.File(fp, 'downloaded_nfo.png'),
-                    view=view,
-                )
-            os.remove(nfo_file_path + '.nfo')
-            os.remove(nfo_file_path + '.png')
-
-            return True
-
-        else:
-            await ctx.send(f"Failed to retrieve NFO: {response.text} Status Code: {response.status_code}")
-
-            return False
-
-    @commands.command()
-    async def nfo(self, ctx, *, dirname: str):
-        await ctx.typing()
-        token = await self.get_token()
-
-        if not token:
-            await ctx.send("Failed to obtain valid authentication token.")
-            return
-
-        headers = {"Authorization": f"Bearer {token}"}
-        found = False
-
-        if not (await self.fetch_srrdb(ctx, dirname)):
-            for type_path, nfo_type in [("/release/info.json", "release"), ("/p2p/rls_info.json", "p2p_rls")]:
-                url = self.api_base_url + type_path
-                curl_command = ["curl", "-s", "-H", f"Authorization: Bearer {token}", "-G", url, "--data-urlencode", f"dirname={dirname}"]
-                response = subprocess.run(curl_command, capture_output=True)
-
-                if response.returncode == 0:
-                    try:
-                        release_info = json.loads(response.stdout.decode('utf-8'))
-                        if "ext_info" in release_info and "link_href" in release_info["ext_info"]:
-                            release_url = release_info["ext_info"]["link_href"]
-                            is_scene = (nfo_type == "release")
-                            await self.fetch_xrel(ctx, headers, release_info, nfo_type, release_url, is_scene)
-                            found = True
-                            break
-                    except json.JSONDecodeError:
-                        continue
-
-        if not found:
-            await ctx.send("```Arrr! ⚓️ Kein Release im sichtbaren Horizont, mein Freund! 🏴‍☠️ Versuche es doch mal "
-                           "mit einem anderen Suchbegriff oder check die Crew von einer anderen Release-Group. "
-                           "Vielleicht ist FuN an Bord!? 😆```")
 
 
     def setup(bot):
