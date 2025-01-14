@@ -126,7 +126,7 @@ class getnfo(commands.Cog):
                 bytes_io_data = io.BytesIO(nfo_response_content)
                 view = View()
 
-                if api_responses['srrdb']['button'] is not None:
+                if api_responses['srrdb']['button']:
                     view.add_item(api_responses['srrdb']['button'])
                 view.add_item(api_responses['xrel']['button'])
 
