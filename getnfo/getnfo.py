@@ -32,6 +32,11 @@ class getnfo(commands.Cog):
                                                     "haste wieder irgendwas falsch gemacht, du Kiosk-König. Guck "
                                                     "nochmal richtig oder lass es einfach – Nuttööö!```")
 
+    @commands.command()
+    async def sync_slash(self, ctx):
+        await self.bot.tree.sync()
+        await ctx.message.add_reaction("✅")
+
     @commands.hybrid_command(name="nfo", description="Fetch NFO via xREL/srrDB")
     @app_commands.describe(release="Release name")
     async def nfo(self, ctx, *, release: str):
