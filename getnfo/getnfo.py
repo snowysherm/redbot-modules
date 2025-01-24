@@ -105,10 +105,10 @@ class getnfo(commands.Cog):
         }
 
     async def send_nfo(self, ctx, api_responses, release):
-        if api_responses['xrel']['success']:
-            await self.send_xrel_nfo(ctx, api_responses, release)
-        elif api_responses['srrdb']['success']:
+        if api_responses['srrdb']['success']:
             await self.send_srrdb_nfo(ctx, api_responses, release)
+        elif api_responses['xrel']['success']:
+            await self.send_xrel_nfo(ctx, api_responses, release)
         else:
             chance = random.randint(1, 100)
             if chance <= 10:
