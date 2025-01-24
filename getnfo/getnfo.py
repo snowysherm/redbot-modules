@@ -207,6 +207,9 @@ class getnfo(commands.Cog):
 
             view = View()
             view.add_item(api_responses['srrdb']['button'])
+            if api_responses['xrel']['button']:
+                    view.add_item(api_responses['xrel']['button'])
+
 
             await self.send_embed_with_image(ctx,
                                              file_path,
