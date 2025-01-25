@@ -189,7 +189,7 @@ class getnfo(commands.Cog):
             with open(file_path + '.nfo', "wb") as file:
                 file.write(nfo_response.content)
 
-            infekt_exe = os.path.join(current_directory, "iNFEKT", "infekt-cli")
+            infekt_exe = os.path.join(current_directory, "iNFEKT", "infekt-cmd.exe")
             nfo_file_path = os.path.join(current_directory, f"{file_name}")
 
             flags_and_arguments = [
