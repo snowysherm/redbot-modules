@@ -93,6 +93,7 @@ class getnfo(commands.Cog):
                             'success': True,
                             'button': button,
                             'data': {
+                                'release_url': release_url,
                                 'release_info': release_info,
                                 'nfo_type': nfo_type,
                             }
@@ -155,12 +156,15 @@ class getnfo(commands.Cog):
                     release_type = "scene"
                     color = discord.Color.from_rgb(244, 67, 54)
 
+                comments = await self.fetch_comments(release, data)
+
                 await self.send_embed_with_image(ctx, file_path.replace(".png", ""),
                                                  release,
                                                  view,
                                                  source="[xREL](https://www.xrel.to/)",
                                                  release_type=release_type,
-                                                 color=color
+                                                 color=color,
+                                                 comments=comments
                                                  )
 
                 os.remove(file_path)
@@ -208,21 +212,39 @@ class getnfo(commands.Cog):
             view = View()
             view.add_item(api_responses['srrdb']['button'])
             if api_responses['xrel']['button']:
-                    view.add_item(api_responses['xrel']['button'])
-
+                comments = await self.fetch_comments(release, api_responses['xrel']['data'])
+                view.add_item(api_responses['xrel']['button'])
 
             await self.send_embed_with_image(ctx,
                                              file_path,
-                                             file_name, view,
+                                             file_name,
+                                             view,
                                              source="[srrDB](https://www.srrdb.com/)",
                                              release_type="Scene",
-                                             color=discord.Color.from_rgb(244, 67, 54)
+                                             color=discord.Color.from_rgb(244, 67, 54),
+                                             comments=comments
                                              )
 
             os.remove(nfo_file_path + '.nfo')
             os.remove(nfo_file_path + '.png')
 
-    async def send_embed_with_image(self, ctx, file_path, file_name, view, source, release_type, color):
+    async def fetch_comments(self, release, data):
+        params = {
+            "dirname": {release}
+        }
+
+        if data['nfo_type'] == "release":
+            comments_url = f"{self.xrel_api_base_url}/{data['nfo_type']}/info.json"
+        else:
+            comments_url = f"{self.xrel_api_base_url}/p2p/rls_info.json"
+
+        comments_response = requests.get(comments_url, params=params)
+
+        comments = comments_response.json()['comments']
+
+        return f"[{comments}]({data['release_url']})"
+
+    async def send_embed_with_image(self, ctx, file_path, file_name, view, source, release_type, color, comments="0"):
         embed = discord.Embed(
             title=f"{file_name}",
             color=color
@@ -230,7 +252,7 @@ class getnfo(commands.Cog):
 
         embed.set_image(url=f"attachment://{file_name}.png")
 
-        embed.add_field(name="Comments", value="N/A", inline=True)
+        embed.add_field(name="Comments", value=comments, inline=True)
         embed.add_field(name="Release Type", value=release_type, inline=True)
         embed.add_field(name="Source", value=source, inline=False)
 
