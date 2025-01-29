@@ -29,7 +29,7 @@ class PerplexityAI(commands.Cog):
         url = "https://0x0.st"
         data = aiohttp.FormData()
         data.add_field('file', text, filename='thinking.txt')
-        data.add_field('secret', '')  # Generate a longer URL
+        data.add_field('secret', '')
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, data=data) as response:
@@ -47,7 +47,6 @@ class PerplexityAI(commands.Cog):
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
         async with ctx.typing():
-            # Get API response
             api_keys = (await self.perplexity_api_keys()).values()
             if not any(api_keys):
                 prefix = ctx.prefix if ctx.prefix else "[p]"
@@ -60,16 +59,13 @@ class PerplexityAI(commands.Cog):
             if prompt := await self.config.prompt():
                 messages.insert(0, {"role": "system", "content": prompt})
 
-            # Get full response object
             response = await self.call_api(model, api_keys, messages, max_tokens)
             if not response:
                 return await ctx.send("No response from API")
                 
-            # Extract content and citations
             content = response.choices[0].message.content
             citations = getattr(response, 'citations', [])
             
-            # Process <think> block
             upload_url = None
             think_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
             if think_match:
@@ -80,27 +76,27 @@ class PerplexityAI(commands.Cog):
                 except Exception as e:
                     print(f"Failed to upload reasoning: {e}")
 
-            # Split and send content
             chunks = self.smart_split(content)
             for chunk in chunks:
                 await ctx.send(chunk)
                 await asyncio.sleep(0.5)
 
-            # Send reasoning and citations separately
+            # Build combined citations message
             if upload_url or citations:
-                final_messages = []
-                
+                citation_lines = []
                 if upload_url:
-                    final_messages.append(f"**Reasoning:**\n<{upload_url}>")
+                    header = f"**Quellen ([Reasoning]({upload_url})):**"
+                else:
+                    header = "**Quellen:**"
                 
                 if citations:
-                    citation_list = "\n".join(f"{i+1}. <{url}>" for i, url in enumerate(citations))
-                    final_messages.append(f"**Quellen:**\n{citation_list}")
+                    citation_lines.extend(f"{i+1}. <{url}>" for i, url in enumerate(citations))
                 
-                # Send all citation-related messages
-                for msg in final_messages:
-                    await ctx.send(msg)
-                    await asyncio.sleep(0.3)
+                full_message = header
+                if citation_lines:
+                    full_message += "\n" + "\n".join(citation_lines)
+                
+                await ctx.send(full_message)
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
