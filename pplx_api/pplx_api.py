@@ -105,7 +105,7 @@ class PerplexityAI(commands.Cog):
                     style=discord.ButtonStyle.primary,  # This is the blurple style
                     label="Reasoning",
                     url=upload_url,
-                    emoji=bigbrain_emoji or "❓"
+                    emoji=bigbrain_emoji or "🧠"
                 )
 
                 view.add_item(button)
