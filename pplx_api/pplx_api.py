@@ -122,20 +122,55 @@ class PerplexityAI(commands.Cog):
                 print(f"API Error: {str(e)}")
         return None
 
-    def smart_split(self, text: str, limit: int = 1950) -> List[str]:
-        chunks = []
-        while len(text) > 0:
-            if len(text) <= limit:
-                chunks.append(text)
-                break
-                
-            split_at = text.rfind('\n\n', 0, limit) or \
-                       text.rfind('. ', 0, limit) or \
-                       text.rfind(' ', 0, limit) or \
-                       limit
-            chunks.append(text[:split_at].strip())
-            text = text[split_at:].lstrip()
-        return chunks
+def smart_split(self, text: str, limit: int = 1950) -> List[str]:
+    chunks = []
+    in_code_block = False
+    while text:
+        # Calculate available space considering possible prepended backticks
+        available = limit - (3 if in_code_block else 0)
+        if available <= 0:
+            # Edge case: Not enough space for content after prepending backticks
+            chunk_part = '```' if in_code_block else ''
+            chunks.append(chunk_part)
+            in_code_block = False
+            continue
+
+        # Find the best split point within the available space
+        split_at = text.rfind('\n\n', 0, available)
+        if split_at == -1:
+            split_at = text.rfind('. ', 0, available)
+        if split_at == -1:
+            split_at = text.rfind(' ', 0, available)
+        if split_at == -1 or split_at == 0:
+            split_at = min(available, len(text))
+
+        chunk_part = text[:split_at].rstrip()
+        remaining_text = text[split_at:].lstrip()
+
+        # Prepend backticks if in a code block
+        current_chunk = '```' + chunk_part if in_code_block else chunk_part
+
+        # Check if current_chunk exceeds the limit after adjustments
+        if len(current_chunk) > limit:
+            # Adjust to fit within limit, prioritize preserving the split
+            excess = len(current_chunk) - limit
+            current_chunk = current_chunk[:limit]
+            remaining_text = text[split_at - excess:] + remaining_text
+
+        # Count backticks in the current chunk
+        backticks = current_chunk.count('```')
+        new_in_code_block = (in_code_block + backticks) % 2 != 0
+
+        # Close the code block if it's left open
+        if new_in_code_block:
+            current_chunk += '```'
+            new_in_code_block = False
+
+        chunks.append(current_chunk)
+        in_code_block = new_in_code_block
+        text = remaining_text
+
+    return chunks
 
     @commands.command()
     @checks.is_owner()
