@@ -29,7 +29,6 @@ class PerplexityAI(commands.Cog):
         await self.do_perplexity(ctx, message)
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
-        # Start typing context for the entire process
         async with ctx.typing():
             # Get API response
             api_keys = (await self.perplexity_api_keys()).values()
@@ -44,16 +43,25 @@ class PerplexityAI(commands.Cog):
             if prompt := await self.config.prompt():
                 messages.insert(0, {"role": "system", "content": prompt})
 
-            reply = await self.call_api(model, api_keys, messages, max_tokens)
-            if not reply:
+            # Get full response object
+            response = await self.call_api(model, api_keys, messages, max_tokens)
+            if not response:
                 return await ctx.send("No response from API")
                 
-            chunks = self.smart_split(reply)
-
-            # Send all chunks within the same typing context
+            # Extract content and citations
+            content = response.choices[0].message.content
+            citations = getattr(response, 'citations', [])
+            
+            # Split and send content
+            chunks = self.smart_split(content)
             for chunk in chunks:
-                await asyncio.sleep(0.5)  # Simulate processing delay
                 await ctx.send(chunk)
+                await asyncio.sleep(0.5)  # Brief pause between messages
+
+            # Send citations if available
+            if citations:
+                citation_text = "**Sources:**\n" + "\n".join(f"• {url}" for url in citations)
+                await ctx.send(citation_text)
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
@@ -64,7 +72,7 @@ class PerplexityAI(commands.Cog):
                     messages=messages,
                     max_tokens=max_tokens
                 )
-                return response.choices[0].message.content
+                return response  # Return full response object
             except Exception as e:
                 print(f"API Error: {str(e)}")
         return None
