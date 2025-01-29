@@ -82,6 +82,7 @@ class PerplexityAI(commands.Cog):
                 await ctx.send(chunk)
                 await asyncio.sleep(0.5)
 
+            # Citation section with emoji button
             if upload_url or citations:
                 citation_lines = []
                 header = "**Quellen:**"
@@ -93,14 +94,20 @@ class PerplexityAI(commands.Cog):
                 if citation_lines:
                     full_message += "\n" + "\n".join(citation_lines)
                 
-                # Create view with button
+                # Get custom emoji
+                bigbrain_emoji = None
+                if ctx.guild:
+                    bigbrain_emoji = discord.utils.get(ctx.guild.emojis, name="bigbrain")
+                
                 view = discord.ui.View()
                 if upload_url:
-                    view.add_item(discord.ui.Button(
-                        label="Reasoning", 
-                        style=discord.ButtonStyle.link, 
-                        url=upload_url
-                    ))
+                    button = discord.ui.Button(
+                        label="Reasoning",
+                        style=discord.ButtonStyle.primary,
+                        url=upload_url,
+                        emoji=bigbrain_emoji or "🧠"  # Fallback if emoji not found
+                    )
+                    view.add_item(button)
                 
                 await ctx.send(full_message, view=view)
 
