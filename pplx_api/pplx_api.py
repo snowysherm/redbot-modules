@@ -84,10 +84,7 @@ class PerplexityAI(commands.Cog):
             # Build combined citations message
             if upload_url or citations:
                 citation_lines = []
-                if upload_url:
-                    header = f"**Quellen ([Reasoning]({upload_url})):**"
-                else:
-                    header = "**Quellen:**"
+                header = "**Quellen:**"  # Remove hyperlink from header
                 
                 if citations:
                     citation_lines.extend(f"{i+1}. <{url}>" for i, url in enumerate(citations))
@@ -96,7 +93,16 @@ class PerplexityAI(commands.Cog):
                 if citation_lines:
                     full_message += "\n" + "\n".join(citation_lines)
                 
-                await ctx.send(full_message)
+                # Create a view with link button if upload exists
+                view = discord.ui.View()
+                if upload_url:
+                    view.add_item(discord.ui.Button(
+                        label="Reasoning", 
+                        style=discord.ButtonStyle.link, 
+                        url=upload_url
+                    ))
+                
+                await ctx.send(full_message, view=view)
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
