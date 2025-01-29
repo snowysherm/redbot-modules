@@ -1,3 +1,4 @@
+import discord
 from discord import Message
 from redbot.core import Config, checks, commands
 from typing import List
@@ -81,10 +82,9 @@ class PerplexityAI(commands.Cog):
                 await ctx.send(chunk)
                 await asyncio.sleep(0.5)
 
-            # Build combined citations message
             if upload_url or citations:
                 citation_lines = []
-                header = "**Quellen:**"  # Remove hyperlink from header
+                header = "**Quellen:**"
                 
                 if citations:
                     citation_lines.extend(f"{i+1}. <{url}>" for i, url in enumerate(citations))
@@ -93,7 +93,7 @@ class PerplexityAI(commands.Cog):
                 if citation_lines:
                     full_message += "\n" + "\n".join(citation_lines)
                 
-                # Create a view with link button if upload exists
+                # Create view with button
                 view = discord.ui.View()
                 if upload_url:
                     view.add_item(discord.ui.Button(
