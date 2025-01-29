@@ -29,7 +29,7 @@ class PerplexityAI(commands.Cog):
         await self.do_perplexity(ctx, message)
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
-        # Start typing context for API processing
+        # Start typing context for the entire process
         async with ctx.typing():
             # Get API response
             api_keys = (await self.perplexity_api_keys()).values()
@@ -45,15 +45,13 @@ class PerplexityAI(commands.Cog):
                 messages.insert(0, {"role": "system", "content": prompt})
 
             reply = await self.call_api(model, api_keys, messages, max_tokens)
-            
             if not reply:
                 return await ctx.send("No response from API")
                 
             chunks = self.smart_split(reply)
 
-        # Send messages with maintained typing
-        for chunk in chunks:
-            async with ctx.typing():  # New typing context for each message
+            # Send all chunks within the same typing context
+            for chunk in chunks:
                 await asyncio.sleep(0.5)  # Simulate processing delay
                 await ctx.send(chunk)
 
