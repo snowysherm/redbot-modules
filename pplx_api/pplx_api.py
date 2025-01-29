@@ -86,6 +86,7 @@ class PerplexityAI(commands.Cog):
             if index == len(chunks) - 1 and upload_url:
                 view = self.create_view(upload_url, ctx.guild)
             await ctx.send(chunk, view=view)
+            await ctx.typing()            
             await asyncio.sleep(0.5)
 
         # Send citations separately if any exist
