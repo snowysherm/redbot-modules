@@ -47,53 +47,53 @@ class PerplexityAI(commands.Cog):
         await self.do_perplexity(ctx, message)
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
-        await ctx.typing()
-        api_keys = (await self.perplexity_api_keys()).values()
-        if not any(api_keys):
-            prefix = ctx.prefix if ctx.prefix else "[p]"
-            return await ctx.send(f"API keys missing! Use `{prefix}set api perplexity api_key,api_key_2`")
-
-        model = await self.config.model()
-        max_tokens = await self.config.max_tokens() or 2000
-        messages = [{"role": "user", "content": message}]
-        
-        if prompt := await self.config.prompt():
-            messages.insert(0, {"role": "system", "content": prompt})
-
-        response = await self.call_api(model, api_keys, messages, max_tokens)
-        if not response:
-            return await ctx.send("No response from API")
+        async with ctx.typing():
+            api_keys = (await self.perplexity_api_keys()).values()
+            if not any(api_keys):
+                prefix = ctx.prefix if ctx.prefix else "[p]"
+                return await ctx.send(f"API keys missing! Use `{prefix}set api perplexity api_key,api_key_2`")
+    
+            model = await self.config.model()
+            max_tokens = await self.config.max_tokens() or 2000
+            messages = [{"role": "user", "content": message}]
             
-        content = response.choices[0].message.content
-        citations = getattr(response, 'citations', [])
-        
-        upload_url = None
-        think_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
-        if think_match:
-            think_text = think_match.group(1)
-            try:
-                upload_url = await self.upload_to_0x0(think_text)
-                content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
-            except Exception as e:
-                print(f"Failed to upload reasoning: {e}")
-
-        chunks = self.smart_split(content)
-        citation_lines = [f"{i+1}. <{url}>" for i, url in enumerate(citations)] if citations else []
-
-        # Send content chunks with button on the last one if applicable
-        for index, chunk in enumerate(chunks):
-            view = None
-            if index == len(chunks) - 1 and upload_url:
-                view = self.create_view(upload_url, ctx.guild)
-            await ctx.send(chunk, view=view)
-            await ctx.typing()            
-            await asyncio.sleep(0.5)
-
-        # Send citations separately if any exist
-        if citation_lines:
-            header = "**Quellen:**"
-            full_message = f"{header}\n" + "\n".join(citation_lines)
-            await ctx.send(full_message)
+            if prompt := await self.config.prompt():
+                messages.insert(0, {"role": "system", "content": prompt})
+    
+            response = await self.call_api(model, api_keys, messages, max_tokens)
+            if not response:
+                return await ctx.send("No response from API")
+                
+            content = response.choices[0].message.content
+            citations = getattr(response, 'citations', [])
+            
+            upload_url = None
+            think_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
+            if think_match:
+                think_text = think_match.group(1)
+                try:
+                    upload_url = await self.upload_to_0x0(think_text)
+                    content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+                except Exception as e:
+                    print(f"Failed to upload reasoning: {e}")
+    
+            chunks = self.smart_split(content)
+            citation_lines = [f"{i+1}. <{url}>" for i, url in enumerate(citations)] if citations else []
+    
+            # Send content chunks with button on the last one if applicable
+            for index, chunk in enumerate(chunks):
+                view = None
+                if index == len(chunks) - 1 and upload_url:
+                    view = self.create_view(upload_url, ctx.guild)
+                await ctx.send(chunk, view=view)
+                await ctx.typing()            
+                await asyncio.sleep(0.5)
+    
+            # Send citations separately if any exist
+            if citation_lines:
+                header = "**Quellen:**"
+                full_message = f"{header}\n" + "\n".join(citation_lines)
+                await ctx.send(full_message)
 
     def create_view(self, upload_url, guild):
         """Helper to create a view with the reasoning button."""
