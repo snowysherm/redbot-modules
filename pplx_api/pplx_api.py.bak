@@ -7,6 +7,7 @@ import re
 
 class PerplexityAI(commands.Cog):
     """Send messages to Perplexity AI"""
+
     def __init__(self, bot):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=3.595549e+11)
@@ -140,51 +141,24 @@ class PerplexityAI(commands.Cog):
 
     def smart_split(self, text: str, char_limit: int = 2000) -> List[str]:
         chunks = []
-        current_chunk = []
-        current_length = 0
+        current_chunk = ""
         code_block = False
-
         lines = text.split('\n')
+
         for line in lines:
-            stripped_line = line.strip()
-            if stripped_line.startswith('```'):
+            if line.strip().startswith('```'):
                 code_block = not code_block
 
-            line_length = len(line) + 1  # +1 for newline
-
-            if current_length + line_length > char_limit:
-                if current_chunk:
-                    chunks.append('\n'.join(current_chunk).strip())
-                    current_chunk = []
-                    current_length = 0
-
-                # Handle lines longer than char_limit
-                while len(line) + 1 > char_limit:
-                    split_at = char_limit - 1  # Reserve 1 for potential newline
-                    chunk_part = line[:split_at]
-                    chunks.append(chunk_part)
-                    line = line[split_at:]
-                    line_length = len(line) + 1
-
-                current_chunk.append(line)
-                current_length += line_length
+            if len(current_chunk) + len(line) + 1 > char_limit and not code_block:
+                chunks.append(current_chunk.strip())
+                current_chunk = line + '\n'
             else:
-                current_chunk.append(line)
-                current_length += line_length
+                current_chunk += line + '\n'
 
         if current_chunk:
-            chunks.append('\n'.join(current_chunk).strip())
+            chunks.append(current_chunk.strip())
 
-        # Final check to split any remaining oversized chunks
-        final_chunks = []
-        for chunk in chunks:
-            while len(chunk) > char_limit:
-                final_chunks.append(chunk[:char_limit])
-                chunk = chunk[char_limit:]
-            if chunk:
-                final_chunks.append(chunk)
-
-        return final_chunks
+        return chunks
 
     @commands.command()
     @checks.is_owner()
@@ -233,3 +207,4 @@ class PerplexityAI(commands.Cog):
 
 def setup(bot):
     bot.add_cog(PerplexityAI(bot))
+
