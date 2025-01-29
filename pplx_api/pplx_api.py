@@ -28,34 +28,34 @@ class PerplexityAI(commands.Cog):
         """Send a message to Perplexity AI"""
         await self.do_perplexity(ctx, message)
 
-async def do_perplexity(self, ctx: commands.Context, message: str):
-    # Start typing context for API processing
-    async with ctx.typing():
-        # Get API response
-        api_keys = (await self.perplexity_api_keys()).values()
-        if not any(api_keys):
-            prefix = ctx.prefix if ctx.prefix else "[p]"
-            return await ctx.send(f"API keys missing! Use `{prefix}set api perplexity api_key,api_key_2`")
+    async def do_perplexity(self, ctx: commands.Context, message: str):
+        # Start typing context for API processing
+        async with ctx.typing():
+            # Get API response
+            api_keys = (await self.perplexity_api_keys()).values()
+            if not any(api_keys):
+                prefix = ctx.prefix if ctx.prefix else "[p]"
+                return await ctx.send(f"API keys missing! Use `{prefix}set api perplexity api_key,api_key_2`")
 
-        model = await self.config.model()
-        max_tokens = await self.config.max_tokens() or 2000
-        messages = [{"role": "user", "content": message}]
-        
-        if prompt := await self.config.prompt():
-            messages.insert(0, {"role": "system", "content": prompt})
-
-        reply = await self.call_api(model, api_keys, messages, max_tokens)
-        
-        if not reply:
-            return await ctx.send("No response from API")
+            model = await self.config.model()
+            max_tokens = await self.config.max_tokens() or 2000
+            messages = [{"role": "user", "content": message}]
             
-        chunks = self.smart_split(reply)
+            if prompt := await self.config.prompt():
+                messages.insert(0, {"role": "system", "content": prompt})
 
-    # Send messages with maintained typing
-    for chunk in chunks:
-        async with ctx.typing():  # New typing context for each message
-            await asyncio.sleep(0.5)  # Simulate processing delay
-            await ctx.send(chunk)
+            reply = await self.call_api(model, api_keys, messages, max_tokens)
+            
+            if not reply:
+                return await ctx.send("No response from API")
+                
+            chunks = self.smart_split(reply)
+
+        # Send messages with maintained typing
+        for chunk in chunks:
+            async with ctx.typing():  # New typing context for each message
+                await asyncio.sleep(0.5)  # Simulate processing delay
+                await ctx.send(chunk)
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
