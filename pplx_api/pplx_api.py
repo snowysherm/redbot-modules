@@ -103,7 +103,7 @@ class PerplexityAI(commands.Cog):
                 if upload_url:
                     button = discord.ui.Button(
                         label="Reasoning",
-                        style=discord.ButtonStyle.primary,
+                        style=discord.ButtonStyle.blurple,
                         url=upload_url,
                         emoji=bigbrain_emoji or "🧠"  # Fallback if emoji not found
                     )
