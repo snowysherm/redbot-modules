@@ -29,8 +29,8 @@ class PerplexityAI(commands.Cog):
         await self.do_perplexity(ctx, message)
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
-        async with ctx.typing():  # Start typing context
-            # Get API response
+        # Get API response with typing indicator
+        async with ctx.typing():
             api_keys = (await self.perplexity_api_keys()).values()
             if not any(api_keys):
                 prefix = ctx.prefix if ctx.prefix else "[p]"
@@ -50,15 +50,11 @@ class PerplexityAI(commands.Cog):
                 
             chunks = self.smart_split(reply)
 
-        # Send messages with continuous typing simulation
-        async with ctx.typing():  # New typing context for sending
-            for index, chunk in enumerate(chunks):
-                if index > 0:
-                    await asyncio.sleep(0.5)  # Delay between messages
+        # Send messages with persistent typing
+        for chunk in chunks:
+            async with ctx.typing():  # Typing indicator per message
+                await asyncio.sleep(0.5)
                 await ctx.send(chunk)
-                # Refresh typing indicator every 8 seconds
-                if index % 3 == 0:
-                    await ctx.trigger_typing()
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
