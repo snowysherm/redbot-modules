@@ -102,11 +102,12 @@ class PerplexityAI(commands.Cog):
             view = discord.ui.View()
             if upload_url:
                 button = discord.ui.Button(
+                    style=discord.ButtonStyle.primary,  # This is the blurple style
                     label="Reasoning",
-                    style=discord.ButtonStyle.blurple,
                     url=upload_url,
-                    emoji=bigbrain_emoji or "🧠"  # Fallback if emoji not found
+                    emoji=bigbrain_emoji or "❓"
                 )
+
                 view.add_item(button)
             
             await ctx.send(full_message, view=view)
