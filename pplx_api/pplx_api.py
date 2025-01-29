@@ -17,7 +17,7 @@ class PerplexityAI(commands.Cog):
         default_global = {
             "perplexity_api_key": None,
             "perplexity_api_key_2": None,
-            "model": "llama-3.1-sonar-small-128k-chat",
+            "model": "sonar-reasoning",
             "max_tokens": 2000,
             "prompt": "",
         }
@@ -78,39 +78,34 @@ class PerplexityAI(commands.Cog):
                 print(f"Failed to upload reasoning: {e}")
 
         chunks = self.smart_split(content)
-        for chunk in chunks:
-            await ctx.send(chunk)
+        citation_lines = [f"{i+1}. <{url}>" for i, url in enumerate(citations)] if citations else []
+
+        # Send content chunks with button on the last one if applicable
+        for index, chunk in enumerate(chunks):
+            view = None
+            if index == len(chunks) - 1 and upload_url:
+                view = self.create_view(upload_url, ctx.guild)
+            await ctx.send(chunk, view=view)
             await asyncio.sleep(0.5)
 
-        # Citation section with emoji button
-        if upload_url or citations:
-            citation_lines = []
+        # Send citations separately if any exist
+        if citation_lines:
             header = "**Quellen:**"
-            
-            if citations:
-                citation_lines.extend(f"{i+1}. <{url}>" for i, url in enumerate(citations))
-            
-            full_message = header
-            if citation_lines:
-                full_message += "\n" + "\n".join(citation_lines)
-            
-            # Get custom emoji
-            bigbrain_emoji = None
-            if ctx.guild:
-                bigbrain_emoji = discord.utils.get(ctx.guild.emojis, name="bigbrain")
-            
-            view = discord.ui.View()
-            if upload_url:
-                button = discord.ui.Button(
-                    style=discord.ButtonStyle.primary,  # This is the blurple style
-                    label="Reasoning",
-                    url=upload_url,
-                    emoji=bigbrain_emoji or "🧠"
-                )
+            full_message = f"{header}\n" + "\n".join(citation_lines)
+            await ctx.send(full_message)
 
-                view.add_item(button)
-            
-            await ctx.send(full_message, view=view)
+    def create_view(self, upload_url, guild):
+        """Helper to create a view with the reasoning button."""
+        bigbrain_emoji = discord.utils.get(guild.emojis, name="bigbrain") if guild else None
+        view = ui.View()
+        button = ui.Button(
+            style=ButtonStyle.primary,
+            label="Reasoning",
+            url=upload_url,
+            emoji=bigbrain_emoji or "🧠"
+        )
+        view.add_item(button)
+        return view
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
