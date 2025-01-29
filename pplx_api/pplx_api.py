@@ -86,17 +86,21 @@ class PerplexityAI(commands.Cog):
                 await ctx.send(chunk)
                 await asyncio.sleep(0.5)
 
-            # Build citations list
-            citation_entries = []
-            if upload_url:
-                citation_entries.append(f"0. <{upload_url}>")
-                citation_entries.extend(f"{i+1}. <{url}>" for i, url in enumerate(citations))
-            else:
-                citation_entries.extend(f"{i+1}. <{url}>" for i, url in enumerate(citations))
-
-            if citation_entries:
-                citation_text = "\n".join(citation_entries)
-                await ctx.send(f"**Quellen:**\n{citation_text}")
+            # Send reasoning and citations separately
+            if upload_url or citations:
+                final_messages = []
+                
+                if upload_url:
+                    final_messages.append(f"**Reasoning:**\n<{upload_url}>")
+                
+                if citations:
+                    citation_list = "\n".join(f"{i+1}. <{url}>" for i, url in enumerate(citations))
+                    final_messages.append(f"**Quellen:**\n{citation_list}")
+                
+                # Send all citation-related messages
+                for msg in final_messages:
+                    await ctx.send(msg)
+                    await asyncio.sleep(0.3)
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
