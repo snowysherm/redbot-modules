@@ -58,9 +58,9 @@ class PerplexityAI(commands.Cog):
                 await ctx.send(chunk)
                 await asyncio.sleep(0.5)  # Brief pause between messages
 
-            # Send citations if available
             if citations:
-                citation_text = "**Sources:**\n" + "\n".join(f"• {url}" for url in citations)
+                # Wrap URLs in <> to prevent embeds
+                citation_text = "**Sources:**\n" + "\n".join(f"• <{url}>" for url in citations)
                 await ctx.send(citation_text)
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
