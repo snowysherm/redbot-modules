@@ -93,22 +93,51 @@ class PerplexityAI(commands.Cog):
             text = text[split_at:].lstrip()
         return chunks
 
-    # Configuration commands remain unchanged
     @commands.command()
     @checks.is_owner()
     async def getperplexitymodel(self, ctx: commands.Context):
         """Get the model for Perplexity AI."""
-        await ctx.send(f"Model: {await self.config.model()}")
+        model = await self.config.model()
+        await ctx.send(f"Perplexity AI model set to `{model}`")
 
     @commands.command()
     @checks.is_owner()
     async def setperplexitymodel(self, ctx: commands.Context, model: str):
         """Set the model for Perplexity AI."""
         await self.config.model.set(model)
-        await ctx.tick()
+        await ctx.send("Perplexity AI model set.")
 
-    # ... other config commands ...
+    @commands.command()
+    @checks.is_owner()
+    async def getperplexitytokens(self, ctx: commands.Context):
+        """Get the maximum number of tokens for Perplexity AI to generate."""
+        model = await self.config.max_tokens()
+        await ctx.send(f"Perplexity AI maximum number of tokens set to `{model}`")
+
+    @commands.command()
+    @checks.is_owner()
+    async def setperplexitytokens(self, ctx: commands.Context, number: str):
+        """Set the maximum number of tokens for Perplexity AI to generate."""
+        try:
+            await self.config.max_tokens.set(int(number))
+            await ctx.send("Perplexity AI maximum number of tokens set.")
+        except ValueError:
+            await ctx.send("Invalid numeric value for maximum number of tokens.")
+
+    @commands.command()
+    @checks.is_owner()
+    async def getperplexityprompt(self, ctx: commands.Context):
+        """Get the prompt for Perplexity AI."""
+        prompt = await self.config.prompt()
+        await ctx.send(f"Perplexity AI prompt is set to: `{prompt}`")
+
+    @commands.command()
+    @checks.is_owner()
+    async def setperplexityprompt(self, ctx: commands.Context, *, prompt: str):
+        """Set the prompt for Perplexity AI."""
+        await self.config.prompt.set(prompt)
+        await ctx.send("Perplexity AI prompt set.")
+
 
 def setup(bot):
     bot.add_cog(PerplexityAI(bot))
-[file content end]
