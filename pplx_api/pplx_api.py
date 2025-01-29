@@ -7,6 +7,7 @@ import re
 
 class PerplexityAI(commands.Cog):
     """Send messages to Perplexity AI"""
+
     def __init__(self, bot):
         self.bot = bot
         self.config = Config.get_conf(self, identifier=3.595549e+11)
@@ -152,35 +153,54 @@ class PerplexityAI(commands.Cog):
 
             line_length = len(line) + 1  # +1 for newline
 
-            if current_length + line_length > char_limit:
+            if current_length + line_length > char_limit and not code_block:
                 if current_chunk:
-                    chunks.append('\n'.join(current_chunk).strip())
+                    chunk_text = '\n'.join(current_chunk)
+                    if len(chunk_text) > char_limit:
+                        while len(chunk_text) > char_limit:
+                            chunks.append(chunk_text[:char_limit])
+                            chunk_text = chunk_text[char_limit:]
+                        if chunk_text:
+                            chunks.append(chunk_text)
+                    else:
+                        chunks.append(chunk_text)
                     current_chunk = []
                     current_length = 0
 
-                # Handle lines longer than char_limit
-                while len(line) + 1 > char_limit:
-                    split_at = char_limit - 1  # Reserve 1 for potential newline
-                    chunk_part = line[:split_at]
-                    chunks.append(chunk_part)
+                # Split lines longer than the limit
+                while len(line) + 1 > char_limit and not code_block:
+                    split_at = char_limit - 1
+                    chunks.append(line[:split_at])
                     line = line[split_at:]
                     line_length = len(line) + 1
 
-                current_chunk.append(line)
-                current_length += line_length
-            else:
-                current_chunk.append(line)
-                current_length += line_length
+            current_chunk.append(line)
+            current_length += line_length
 
+        # Add remaining lines
         if current_chunk:
-            chunks.append('\n'.join(current_chunk).strip())
+            chunk_text = '\n'.join(current_chunk)
+            if len(chunk_text) > char_limit:
+                while len(chunk_text) > char_limit:
+                    chunks.append(chunk_text[:char_limit])
+                    chunk_text = chunk_text[char_limit:]
+                if chunk_text:
+                    chunks.append(chunk_text)
+            else:
+                chunks.append(chunk_text)
 
-        # Final check to split any remaining oversized chunks
+        # Final aggressive split to ensure no chunk exceeds limit
         final_chunks = []
         for chunk in chunks:
             while len(chunk) > char_limit:
-                final_chunks.append(chunk[:char_limit])
-                chunk = chunk[char_limit:]
+                split_index = char_limit
+                # Avoid splitting code block markers
+                if '```' in chunk[split_index-3:split_index]:
+                    split_index = chunk.rfind('```', 0, split_index) + 3
+                    if split_index < 3:
+                        split_index = char_limit
+                final_chunks.append(chunk[:split_index])
+                chunk = chunk[split_index:]
             if chunk:
                 final_chunks.append(chunk)
 
