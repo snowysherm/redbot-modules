@@ -124,54 +124,49 @@ class PerplexityAI(commands.Cog):
 
     def smart_split(self, text: str, limit: int = 1950) -> List[str]:
         chunks = []
+        current_chunk = []
+        current_length = 0
         in_code_block = False
-        while text:
-            # Calculate available space considering possible prepended backticks
-            available = limit - (3 if in_code_block else 0)
-            if available <= 0:
-                # Edge case: Not enough space for content after prepending backticks
-                chunk_part = '```' if in_code_block else ''
-                chunks.append(chunk_part)
-                in_code_block = False
-                continue
     
-            # Find the best split point within the available space
-            split_at = text.rfind('\n\n', 0, available)
-            if split_at == -1:
-                split_at = text.rfind('. ', 0, available)
-            if split_at == -1:
-                split_at = text.rfind(' ', 0, available)
-            if split_at == -1 or split_at == 0:
-                split_at = min(available, len(text))
+        lines = text.split('\n')
+        for line in lines:
+            line_stripped = line.strip()
+            
+            # Toggle code block state on lines with ```
+            if line_stripped.startswith('```'):
+                in_code_block = not in_code_block
     
-            chunk_part = text[:split_at].rstrip()
-            remaining_text = text[split_at:].lstrip()
+            new_length = current_length + len(line) + 1  # +1 for newline
+            
+            if new_length > limit:
+                # Finalize current chunk
+                chunk = '\n'.join(current_chunk)
+                
+                # Add code block closure if needed
+                if in_code_block:
+                    chunk += '\n```'
+                    # Next chunk should start with code block opener
+                    chunks.append(chunk)
+                    current_chunk = ['```', line]
+                    current_length = len('```\n') + len(line) + 1
+                else:
+                    chunks.append(chunk)
+                    current_chunk = [line]
+                    current_length = len(line) + 1
+            else:
+                current_chunk.append(line)
+                current_length = new_length
     
-            # Prepend backticks if in a code block
-            current_chunk = '```' + chunk_part if in_code_block else chunk_part
-    
-            # Check if current_chunk exceeds the limit after adjustments
-            if len(current_chunk) > limit:
-                # Adjust to fit within limit, prioritize preserving the split
-                excess = len(current_chunk) - limit
-                current_chunk = current_chunk[:limit]
-                remaining_text = text[split_at - excess:] + remaining_text
-    
-            # Count backticks in the current chunk
-            backticks = current_chunk.count('```')
-            new_in_code_block = (in_code_block + backticks) % 2 != 0
-    
-            # Close the code block if it's left open
-            if new_in_code_block:
-                current_chunk += '```'
-                new_in_code_block = False
-    
-            chunks.append(current_chunk)
-            in_code_block = new_in_code_block
-            text = remaining_text
+        # Add remaining content
+        if current_chunk:
+            chunk = '\n'.join(current_chunk)
+            if in_code_block:
+                chunk += '\n```'
+            chunks.append(chunk)
     
         return chunks
 
+    
     @commands.command()
     @checks.is_owner()
     async def setperplexitytokens(self, ctx: commands.Context, tokens: int):
