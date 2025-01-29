@@ -1,5 +1,3 @@
-[file name]: pplx_api.py
-[file content begin]
 from discord import Message
 from redbot.core import Config, checks, commands
 from typing import List
