@@ -25,23 +25,25 @@ class PerplexityAI(commands.Cog):
     async def perplexity_api_keys(self):
         return await self.bot.get_shared_api_tokens("perplexity")
 
-    @commands.command(aliases=['pplx'])
-
-
     async def upload_to_0x0(self, text: str) -> str:
-            url = "https://0x0.st"
-            data = aiohttp.FormData()
-            data.add_field('file', text, filename='thinking.txt')
-            data.add_field('secret', '')  # Generate a longer URL
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, data=data) as response:
-                        if response.status == 200:
-                            return (await response.text()).strip()
-                        else:
-                            raise Exception(f"Upload failed: HTTP {response.status}")
-            except Exception as e:
-                raise Exception(f"Upload error: {str(e)}")
+        url = "https://0x0.st"
+        data = aiohttp.FormData()
+        data.add_field('file', text, filename='thinking.txt')
+        data.add_field('secret', '')  # Generate a longer URL
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, data=data) as response:
+                    if response.status == 200:
+                        return (await response.text()).strip()
+                    else:
+                        raise Exception(f"Upload failed: HTTP {response.status}")
+        except Exception as e:
+            raise Exception(f"Upload error: {str(e)}")
+
+    @commands.command(aliases=['pplx'])
+    async def perplexity(self, ctx: commands.Context, *, message: str):
+        """Send a message to Perplexity AI"""
+        await self.do_perplexity(ctx, message)
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
         async with ctx.typing():
@@ -73,24 +75,20 @@ class PerplexityAI(commands.Cog):
                 think_text = think_match.group(1)
                 try:
                     upload_url = await self.upload_to_0x0(think_text)
-                    # Remove the think block and prepend the link
                     content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
                     content = f'[Reasoning]({upload_url})\n\n{content}'
                 except Exception as e:
                     print(f"Failed to upload reasoning: {e}")
-                    # Optionally notify the user or leave the <think> content
-            
+
             # Split and send content
             chunks = self.smart_split(content)
             for chunk in chunks:
                 await ctx.send(chunk)
-                await asyncio.sleep(0.5)  # Brief pause between messages
+                await asyncio.sleep(0.5)
 
             if citations:
-                # Wrap URLs in <> to prevent embeds
                 citation_list = "\n".join(f"{i+1}. <{url}>" for i, url in enumerate(citations))
                 await ctx.send(f"**Quellen:**\n{citation_list}")
-
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
@@ -101,7 +99,7 @@ class PerplexityAI(commands.Cog):
                     messages=messages,
                     max_tokens=max_tokens
                 )
-                return response  # Return full response object
+                return response
             except Exception as e:
                 print(f"API Error: {str(e)}")
         return None
@@ -120,15 +118,6 @@ class PerplexityAI(commands.Cog):
             chunks.append(text[:split_at].strip())
             text = text[split_at:].lstrip()
         return chunks
-
-
-
-    @commands.command()
-    @checks.is_owner()
-    async def setperplexitytokens(self, ctx: commands.Context, tokens: int):
-        """Set max tokens (2000-4000 recommended)"""
-        await self.config.max_tokens.set(max(400, min(tokens, 4000)))
-        await ctx.tick()
 
     @commands.command()
     @checks.is_owner()
