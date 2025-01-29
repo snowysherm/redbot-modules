@@ -70,13 +70,13 @@ class PerplexityAI(commands.Cog):
             citations = getattr(response, 'citations', [])
             
             # Process <think> block
+            upload_url = None
             think_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
             if think_match:
                 think_text = think_match.group(1)
                 try:
                     upload_url = await self.upload_to_0x0(think_text)
                     content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
-                    content = f'[Reasoning]({upload_url})\n\n{content}'
                 except Exception as e:
                     print(f"Failed to upload reasoning: {e}")
 
@@ -86,9 +86,17 @@ class PerplexityAI(commands.Cog):
                 await ctx.send(chunk)
                 await asyncio.sleep(0.5)
 
-            if citations:
-                citation_list = "\n".join(f"{i+1}. <{url}>" for i, url in enumerate(citations))
-                await ctx.send(f"**Quellen:**\n{citation_list}")
+            # Build citations list
+            citation_entries = []
+            if upload_url:
+                citation_entries.append(f"0. <{upload_url}>")
+                citation_entries.extend(f"{i+1}. <{url}>" for i, url in enumerate(citations))
+            else:
+                citation_entries.extend(f"{i+1}. <{url}>" for i, url in enumerate(citations))
+
+            if citation_entries:
+                citation_text = "\n".join(citation_entries)
+                await ctx.send(f"**Quellen:**\n{citation_text}")
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
