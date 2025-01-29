@@ -4,6 +4,8 @@ from typing import List
 import openai
 from openai import OpenAI
 import asyncio
+import re
+import aiohttp
 
 class PerplexityAI(commands.Cog):
     """Send messages to Perplexity AI"""
@@ -24,44 +26,71 @@ class PerplexityAI(commands.Cog):
         return await self.bot.get_shared_api_tokens("perplexity")
 
     @commands.command(aliases=['pplx'])
-    async def perplexity(self, ctx: commands.Context, *, message: str):
-        """Send a message to Perplexity AI"""
-        await self.do_perplexity(ctx, message)
 
-    async def do_perplexity(self, ctx: commands.Context, message: str):
-        async with ctx.typing():
-            # Get API response
-            api_keys = (await self.perplexity_api_keys()).values()
-            if not any(api_keys):
-                prefix = ctx.prefix if ctx.prefix else "[p]"
-                return await ctx.send(f"API keys missing! Use `{prefix}set api perplexity api_key,api_key_2`")
 
-            model = await self.config.model()
-            max_tokens = await self.config.max_tokens() or 2000
-            messages = [{"role": "user", "content": message}]
-            
-            if prompt := await self.config.prompt():
-                messages.insert(0, {"role": "system", "content": prompt})
+    async def upload_to_0x0(self, text: str) -> str:
+            url = "https://0x0.st"
+            data = aiohttp.FormData()
+            data.add_field('file', text, filename='thinking.txt')
+            data.add_field('secret', '')  # Generate a longer URL
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, data=data) as response:
+                        if response.status == 200:
+                            return (await response.text()).strip()
+                        else:
+                            raise Exception(f"Upload failed: HTTP {response.status}")
+            except Exception as e:
+                raise Exception(f"Upload error: {str(e)}")
 
-            # Get full response object
-            response = await self.call_api(model, api_keys, messages, max_tokens)
-            if not response:
-                return await ctx.send("No response from API")
+        async def do_perplexity(self, ctx: commands.Context, message: str):
+            async with ctx.typing():
+                # Get API response
+                api_keys = (await self.perplexity_api_keys()).values()
+                if not any(api_keys):
+                    prefix = ctx.prefix if ctx.prefix else "[p]"
+                    return await ctx.send(f"API keys missing! Use `{prefix}set api perplexity api_key,api_key_2`")
+
+                model = await self.config.model()
+                max_tokens = await self.config.max_tokens() or 2000
+                messages = [{"role": "user", "content": message}]
                 
-            # Extract content and citations
-            content = response.choices[0].message.content
-            citations = getattr(response, 'citations', [])
-            
-            # Split and send content
-            chunks = self.smart_split(content)
-            for chunk in chunks:
-                await ctx.send(chunk)
-                await asyncio.sleep(0.5)  # Brief pause between messages
+                if prompt := await self.config.prompt():
+                    messages.insert(0, {"role": "system", "content": prompt})
 
-            if citations:
-                # Wrap URLs in <> to prevent embeds
-                citation_list = "\n".join(f"{i+1}. <{url}>" for i, url in enumerate(citations))
-                await ctx.send(f"**Quellen:**\n{citation_list}")
+                # Get full response object
+                response = await self.call_api(model, api_keys, messages, max_tokens)
+                if not response:
+                    return await ctx.send("No response from API")
+                    
+                # Extract content and citations
+                content = response.choices[0].message.content
+                citations = getattr(response, 'citations', [])
+                
+                # Process <think> block
+                think_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
+                if think_match:
+                    think_text = think_match.group(1)
+                    try:
+                        upload_url = await self.upload_to_0x0(think_text)
+                        # Remove the think block and prepend the link
+                        content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+                        content = f'[Reasoning]({upload_url})\n\n{content}'
+                    except Exception as e:
+                        print(f"Failed to upload reasoning: {e}")
+                        # Optionally notify the user or leave the <think> content
+                
+                # Split and send content
+                chunks = self.smart_split(content)
+                for chunk in chunks:
+                    await ctx.send(chunk)
+                    await asyncio.sleep(0.5)  # Brief pause between messages
+
+                if citations:
+                    # Wrap URLs in <> to prevent embeds
+                    citation_list = "\n".join(f"{i+1}. <{url}>" for i, url in enumerate(citations))
+                    await ctx.send(f"**Quellen:**\n{citation_list}")
+
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
