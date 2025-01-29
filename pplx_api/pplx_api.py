@@ -123,77 +123,48 @@ class PerplexityAI(commands.Cog):
         return None
 
     def smart_split(self, text: str, limit: int = 1950) -> List[str]:
-        chunks = []
-        current_chunk = []
-        current_length = 0
-        code_block_lang = None  # Track code block language (None if not in code block)
-        pending_opener = None  # Track if we need to add code block opener
+            chunks = []
+            current_chunk = []
+            current_length = 0
+            in_code_block = False
         
-        lines = text.split('\n')
+            lines = text.split('\n')
+            for line in lines:
+                line_stripped = line.strip()
+                
+                # Toggle code block state on lines with ```
+                if line_stripped.startswith('```'):
+                    in_code_block = not in_code_block
         
-        for i, line in enumerate(lines):
-            line_stripped = line.strip()
-            new_line_length = len(line) + 1  # +1 for newline
-            
-            # Detect code block start/end
-            if line_stripped.startswith('```'):
-                match = re.match(r'^```(\w*)', line_stripped)
-                if code_block_lang is None:
-                    # Starting new code block
-                    code_block_lang = match.group(1) or None
-                    pending_opener = None  # Reset pending opener
-                else:
-                    # Ending code block
-                    code_block_lang = None
-    
-            # Check if adding this line would exceed limit
-            if current_length + new_line_length > limit:
-                if current_chunk:
+                new_length = current_length + len(line) + 1  # +1 for newline
+                
+                if new_length > limit:
                     # Finalize current chunk
                     chunk = '\n'.join(current_chunk)
                     
-                    # Close code block if active
-                    if code_block_lang is not None:
+                    # Add code block closure if needed
+                    if in_code_block:
                         chunk += '\n```'
-                        pending_opener = f'```{code_block_lang}'  # Prepare for next chunk
-                    
-                    chunks.append(chunk)
-                    current_chunk = []
-                    current_length = 0
-                    
-                    # Add pending opener if needed
-                    if pending_opener:
-                        current_chunk.append(pending_opener)
-                        current_length += len(pending_opener) + 1
-                        pending_opener = None
-    
-                # Handle current line (might need mid-line split)
-                remaining_space = limit - current_length
-                if remaining_space > 3:  # Ensure space for code block closer if needed
-                    current_chunk.append(line[:remaining_space])
-                    chunks.append('\n'.join(current_chunk))
-                    current_chunk = [line[remaining_space:]]
-                    current_length = len(line[remaining_space:])
+                        # Next chunk should start with code block opener
+                        chunks.append(chunk)
+                        current_chunk = ['```', line]
+                        current_length = len('```\n') + len(line) + 1
+                    else:
+                        chunks.append(chunk)
+                        current_chunk = [line]
+                        current_length = len(line) + 1
                 else:
-                    chunks.append('\n'.join(current_chunk))
-                    current_chunk = [line]
-                    current_length = len(line)
-                    
-                continue
-    
-            # Add line to current chunk
-            current_chunk.append(line)
-            current_length += new_line_length
-    
-        # Add remaining content
-        if current_chunk:
-            chunk = '\n'.join(current_chunk)
-            # Close open code block if any
-            if code_block_lang is not None:
-                chunk += '\n```'
-            chunks.append(chunk)
+                    current_chunk.append(line)
+                    current_length = new_length
         
-        return chunks
+            # Add remaining content
+            if current_chunk:
+                chunk = '\n'.join(current_chunk)
+                if in_code_block:
+                    chunk += '\n```'
+                chunks.append(chunk)
+        
+            return chunks
 
     
     @commands.command()
