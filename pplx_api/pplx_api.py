@@ -14,11 +14,10 @@ class PerplexityAI(commands.Cog):
             "perplexity_api_key": None,
             "perplexity_api_key_2": None,
             "model": "llama-3.1-sonar-small-128k-chat",
-            "max_tokens": 2000,  # Default set to 2000
+            "max_tokens": 2000,
             "prompt": "",
         }
         self.config.register_global(**default_global)
-        self.client = None
 
     async def perplexity_api_keys(self):
         return await self.bot.get_shared_api_tokens("perplexity")
@@ -29,27 +28,28 @@ class PerplexityAI(commands.Cog):
         await self.do_perplexity(ctx, message)
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
-        await ctx.typing()
-        api_keys = (await self.perplexity_api_keys()).values()
-        
-        if not any(api_keys):
-            prefix = ctx.prefix if ctx.prefix else "[p]"
-            return await ctx.send(f"API keys missing! Use `{prefix}set api perplexity api_key,api_key_2`")
-
-        model = await self.config.model()
-        max_tokens = await self.config.max_tokens() or 2000  # Fallback to 2000
-        messages = [{"role": "user", "content": message}]
-        
-        if prompt := await self.config.prompt():
-            messages.insert(0, {"role": "system", "content": prompt})
-
-        reply = await self.call_api(model, api_keys, messages, max_tokens)
-        
-        if not reply:
-            return await ctx.send("No response from API")
+        async with ctx.typing():  # Keep typing active for entire process
+            api_keys = (await self.perplexity_api_keys()).values()
             
-        for chunk in self.brute_split(reply):
-            await ctx.send(chunk)
+            if not any(api_keys):
+                prefix = ctx.prefix if ctx.prefix else "[p]"
+                return await ctx.send(f"API keys missing! Use `{prefix}set api perplexity api_key,api_key_2`")
+
+            model = await self.config.model()
+            max_tokens = await self.config.max_tokens() or 2000
+            messages = [{"role": "user", "content": message}]
+            
+            if prompt := await self.config.prompt():
+                messages.insert(0, {"role": "system", "content": prompt})
+
+            reply = await self.call_api(model, api_keys, messages, max_tokens)
+            
+            if not reply:
+                return await ctx.send("No response from API")
+                
+            chunks = self.smart_split(reply)
+            for chunk in chunks:
+                await ctx.send(chunk)
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
@@ -65,8 +65,26 @@ class PerplexityAI(commands.Cog):
                 print(f"API Error: {str(e)}")
         return None
 
-    def brute_split(self, text: str, limit: int = 1990) -> List[str]:
-        return [text[i:i+limit] for i in range(0, len(text), limit)]
+    def smart_split(self, text: str, limit: int = 1950) -> List[str]:
+        chunks = []
+        while len(text) > 0:
+            if len(text) <= limit:
+                chunks.append(text)
+                break
+                
+            # Find natural split points
+            split_at = text.rfind('\n\n', 0, limit)  # Check for paragraphs
+            if split_at == -1:
+                split_at = text.rfind('. ', 0, limit)  # Check for sentence ends
+            if split_at == -1:
+                split_at = text.rfind(' ', 0, limit)  # Avoid word breaks
+            
+            # Fallback to hard split if no natural break found
+            split_at = split_at if split_at != -1 else limit
+            chunks.append(text[:split_at].strip())
+            text = text[split_at:].lstrip()
+            
+        return chunks
 
     @commands.command()
     @checks.is_owner()
