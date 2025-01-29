@@ -29,7 +29,7 @@ class PerplexityAI(commands.Cog):
         await self.do_perplexity(ctx, message)
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
-        # Start typing context for the entire process
+        # Start persistent typing
         async with ctx.typing():
             # Get API response
             api_keys = (await self.perplexity_api_keys()).values()
@@ -50,10 +50,21 @@ class PerplexityAI(commands.Cog):
                 
             chunks = self.smart_split(reply)
 
-            # Send all chunks within the same typing context
-            for chunk in chunks:
-                await asyncio.sleep(0.5)  # Simulate processing delay
-                await ctx.send(chunk)
+            # Create a task to keep typing active
+            typing_task = self.bot.loop.create_task(self.keep_typing(ctx.channel))
+            
+            try:
+                for chunk in chunks:
+                    await ctx.send(chunk)
+                    await asyncio.sleep(0.5)  # Brief pause between messages
+            finally:
+                typing_task.cancel()  # Stop typing when done
+
+    async def keep_typing(self, channel):
+        """Keep sending typing indicator every 8 seconds"""
+        while True:
+            await channel.trigger_typing()
+            await asyncio.sleep(8)  # Discord typing lasts 10 seconds, refresh every 8
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
