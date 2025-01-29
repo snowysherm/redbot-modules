@@ -3,6 +3,7 @@ from redbot.core import Config, checks, commands
 from typing import List
 import openai
 from openai import OpenAI
+import asyncio
 
 class PerplexityAI(commands.Cog):
     """Send messages to Perplexity AI"""
@@ -28,7 +29,8 @@ class PerplexityAI(commands.Cog):
         await self.do_perplexity(ctx, message)
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
-        async with ctx.typing():  # Keep typing active for entire process
+        async with ctx.typing():  # Maintain typing for entire process
+            # API call and response processing
             api_keys = (await self.perplexity_api_keys()).values()
             
             if not any(api_keys):
@@ -48,8 +50,13 @@ class PerplexityAI(commands.Cog):
                 return await ctx.send("No response from API")
                 
             chunks = self.smart_split(reply)
-            for chunk in chunks:
-                await ctx.send(chunk)
+
+        # Send messages with typing simulation
+        for index, chunk in enumerate(chunks):
+            if index > 0:
+                async with ctx.typing():
+                    await asyncio.sleep(0.5)  # Simulate typing between messages
+            await ctx.send(chunk)
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
@@ -72,19 +79,20 @@ class PerplexityAI(commands.Cog):
                 chunks.append(text)
                 break
                 
-            # Find natural split points
-            split_at = text.rfind('\n\n', 0, limit)  # Check for paragraphs
-            if split_at == -1:
-                split_at = text.rfind('. ', 0, limit)  # Check for sentence ends
-            if split_at == -1:
-                split_at = text.rfind(' ', 0, limit)  # Avoid word breaks
-            
-            # Fallback to hard split if no natural break found
-            split_at = split_at if split_at != -1 else limit
+            split_at = text.rfind('\n\n', 0, limit) or \
+                       text.rfind('. ', 0, limit) or \
+                       text.rfind(' ', 0, limit) or \
+                       limit
             chunks.append(text[:split_at].strip())
             text = text[split_at:].lstrip()
-            
         return chunks
+
+    @commands.command()
+    @checks.is_owner()
+    async def setperplexitytokens(self, ctx: commands.Context, tokens: int):
+        """Set max tokens (2000-4000 recommended)"""
+        await self.config.max_tokens.set(max(400, min(tokens, 4000)))
+        await ctx.tick()
 
     @commands.command()
     @checks.is_owner()
