@@ -60,8 +60,8 @@ class PerplexityAI(commands.Cog):
 
             if citations:
                 # Wrap URLs in <> to prevent embeds
-                citation_text = "**Sources:**\n" + "\n".join(f"• <{url}>" for url in citations)
-                await ctx.send(citation_text)
+                citation_list = "\n".join(f"{i+1}. <{url}>" for i, url in enumerate(citations))
+                await ctx.send(f"**References:**\n{citation_list}")
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
