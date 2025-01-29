@@ -19,7 +19,6 @@ class PerplexityAI(commands.Cog):
             "prompt": "",
         }
         self.config.register_global(**default_global)
-        self.typing_tasks = {}
 
     async def perplexity_api_keys(self):
         return await self.bot.get_shared_api_tokens("perplexity")
@@ -30,10 +29,7 @@ class PerplexityAI(commands.Cog):
         await self.do_perplexity(ctx, message)
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
-        # Start persistent typing task
-        typing_task = self.bot.loop.create_task(self.keep_typing(ctx))
-        
-        try:
+        async with ctx.typing():  # Initial typing context
             # Get API response
             api_keys = (await self.perplexity_api_keys()).values()
             if not any(api_keys):
@@ -54,24 +50,11 @@ class PerplexityAI(commands.Cog):
                 
             chunks = self.smart_split(reply)
 
-            # Send messages with delays
-            for chunk in chunks:
-                await asyncio.sleep(0.5)  # Simulate processing delay
+        # Send messages with maintained typing
+        for chunk in chunks:
+            async with ctx.typing():  # New typing context for each message
+                await asyncio.sleep(0.5)
                 await ctx.send(chunk)
-                
-        finally:
-            # Clean up typing task
-            typing_task.cancel()
-            try:
-                await typing_task
-            except asyncio.CancelledError:
-                pass
-
-    async def keep_typing(self, ctx: commands.Context):
-        """Background task to maintain typing indicator"""
-        while True:
-            async with ctx.typing():
-                await asyncio.sleep(8)  # Refresh typing every 8 seconds
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
@@ -101,6 +84,7 @@ class PerplexityAI(commands.Cog):
             chunks.append(text[:split_at].strip())
             text = text[split_at:].lstrip()
         return chunks
+
 
 
     @commands.command()
