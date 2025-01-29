@@ -47,7 +47,7 @@ class PerplexityAI(commands.Cog):
         await self.do_perplexity(ctx, message)
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
-        async with ctx.typing():
+        await ctx.typing():
             api_keys = (await self.perplexity_api_keys()).values()
             if not any(api_keys):
                 prefix = ctx.prefix if ctx.prefix else "[p]"
