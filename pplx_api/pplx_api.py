@@ -3,7 +3,7 @@ from discord import Message, ui, ButtonStyle
 from redbot.core import Config, checks, commands
 from typing import List
 import openai
-from openai import OpenAI
+from openai import AsyncOpenAI
 import asyncio
 import re
 import aiohttp
@@ -111,8 +111,8 @@ class PerplexityAI(commands.Cog):
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
             try:
-                client = OpenAI(api_key=key, base_url="https://api.perplexity.ai")
-                response = client.chat.completions.create(
+                client = AsyncOpenAI(api_key=key, base_url="https://api.perplexity.ai")
+                response = await client.chat.completions.create(
                     model=model,
                     messages=messages,
                     max_tokens=max_tokens
