@@ -62,7 +62,11 @@ class PerplexityAI(commands.Cog):
         reply = await self.call_api(model, api_key, messages, max_tokens)
         
         if reply:
-            for chunk in self.smart_split(reply):
+            # DEBUG: Check reply length and chunks
+            print(f"[DEBUG] Reply length: {len(reply)}")
+            chunks = self.smart_split(reply)
+            print(f"[DEBUG] Number of chunks: {len(chunks)}")
+            for chunk in chunks:
                 await ctx.send(chunk)
         else:
             await ctx.send("No response from Perplexity AI.")
@@ -83,61 +87,48 @@ class PerplexityAI(commands.Cog):
         return "All API keys failed."
 
     def smart_split(self, text: str, char_limit: int = 2000) -> List[str]:
-        chunks = []
-        while text:
-            # Split at nearest whitespace when possible
-            split_at = char_limit
-            if len(text) > char_limit:
-                split_at = text[:char_limit].rfind(' ') + 1 or char_limit
-            chunks.append(text[:split_at].strip())
-            text = text[split_at:].lstrip()
-        return chunks
+        # Bruteforce split every 2000 characters
+        return [text[i:i+char_limit] for i in range(0, len(text), char_limit)]
 
+    # Configuration commands remain unchanged
     @commands.command()
     @checks.is_owner()
     async def getperplexitymodel(self, ctx: commands.Context):
         """Get the model for Perplexity AI."""
-        model = await self.config.model()
-        await ctx.send(f"Perplexity AI model set to `{model}`")
+        await ctx.send(f"Model: {await self.config.model()}")
 
     @commands.command()
     @checks.is_owner()
     async def setperplexitymodel(self, ctx: commands.Context, model: str):
         """Set the model for Perplexity AI."""
         await self.config.model.set(model)
-        await ctx.send("Perplexity AI model set.")
+        await ctx.tick()
 
     @commands.command()
     @checks.is_owner()
     async def getperplexitytokens(self, ctx: commands.Context):
         """Get the maximum number of tokens for Perplexity AI to generate."""
-        model = await self.config.max_tokens()
-        await ctx.send(f"Perplexity AI maximum number of tokens set to `{model}`")
+        await ctx.send(f"Max tokens: {await self.config.max_tokens()}")
 
     @commands.command()
     @checks.is_owner()
-    async def setperplexitytokens(self, ctx: commands.Context, number: str):
+    async def setperplexitytokens(self, ctx: commands.Context, number: int):
         """Set the maximum number of tokens for Perplexity AI to generate."""
-        try:
-            await self.config.max_tokens.set(int(number))
-            await ctx.send("Perplexity AI maximum number of tokens set.")
-        except ValueError:
-            await ctx.send("Invalid numeric value for maximum number of tokens.")
+        await self.config.max_tokens.set(number)
+        await ctx.tick()
 
     @commands.command()
     @checks.is_owner()
     async def getperplexityprompt(self, ctx: commands.Context):
         """Get the prompt for Perplexity AI."""
-        prompt = await self.config.prompt()
-        await ctx.send(f"Perplexity AI prompt is set to: `{prompt}`")
+        await ctx.send(f"Prompt: {await self.config.prompt()}")
 
     @commands.command()
     @checks.is_owner()
     async def setperplexityprompt(self, ctx: commands.Context, *, prompt: str):
         """Set the prompt for Perplexity AI."""
         await self.config.prompt.set(prompt)
-        await ctx.send("Perplexity AI prompt set.")
-
+        await ctx.tick()
 
 def setup(bot):
     bot.add_cog(PerplexityAI(bot))
