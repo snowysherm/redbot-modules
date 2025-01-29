@@ -47,69 +47,69 @@ class PerplexityAI(commands.Cog):
         await self.do_perplexity(ctx, message)
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
-        await ctx.typing():
-            api_keys = (await self.perplexity_api_keys()).values()
-            if not any(api_keys):
-                prefix = ctx.prefix if ctx.prefix else "[p]"
-                return await ctx.send(f"API keys missing! Use `{prefix}set api perplexity api_key,api_key_2`")
+        await ctx.typing()
+        api_keys = (await self.perplexity_api_keys()).values()
+        if not any(api_keys):
+            prefix = ctx.prefix if ctx.prefix else "[p]"
+            return await ctx.send(f"API keys missing! Use `{prefix}set api perplexity api_key,api_key_2`")
 
-            model = await self.config.model()
-            max_tokens = await self.config.max_tokens() or 2000
-            messages = [{"role": "user", "content": message}]
+        model = await self.config.model()
+        max_tokens = await self.config.max_tokens() or 2000
+        messages = [{"role": "user", "content": message}]
+        
+        if prompt := await self.config.prompt():
+            messages.insert(0, {"role": "system", "content": prompt})
+
+        response = await self.call_api(model, api_keys, messages, max_tokens)
+        if not response:
+            return await ctx.send("No response from API")
             
-            if prompt := await self.config.prompt():
-                messages.insert(0, {"role": "system", "content": prompt})
+        content = response.choices[0].message.content
+        citations = getattr(response, 'citations', [])
+        
+        upload_url = None
+        think_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
+        if think_match:
+            think_text = think_match.group(1)
+            try:
+                upload_url = await self.upload_to_0x0(think_text)
+                content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+            except Exception as e:
+                print(f"Failed to upload reasoning: {e}")
 
-            response = await self.call_api(model, api_keys, messages, max_tokens)
-            if not response:
-                return await ctx.send("No response from API")
-                
-            content = response.choices[0].message.content
-            citations = getattr(response, 'citations', [])
+        chunks = self.smart_split(content)
+        for chunk in chunks:
+            await ctx.send(chunk)
+            await asyncio.sleep(0.5)
+
+        # Citation section with emoji button
+        if upload_url or citations:
+            citation_lines = []
+            header = "**Quellen:**"
             
-            upload_url = None
-            think_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
-            if think_match:
-                think_text = think_match.group(1)
-                try:
-                    upload_url = await self.upload_to_0x0(think_text)
-                    content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
-                except Exception as e:
-                    print(f"Failed to upload reasoning: {e}")
-
-            chunks = self.smart_split(content)
-            for chunk in chunks:
-                await ctx.send(chunk)
-                await asyncio.sleep(0.5)
-
-            # Citation section with emoji button
-            if upload_url or citations:
-                citation_lines = []
-                header = "**Quellen:**"
-                
-                if citations:
-                    citation_lines.extend(f"{i+1}. <{url}>" for i, url in enumerate(citations))
-                
-                full_message = header
-                if citation_lines:
-                    full_message += "\n" + "\n".join(citation_lines)
-                
-                # Get custom emoji
-                bigbrain_emoji = None
-                if ctx.guild:
-                    bigbrain_emoji = discord.utils.get(ctx.guild.emojis, name="bigbrain")
-                
-                view = discord.ui.View()
-                if upload_url:
-                    button = discord.ui.Button(
-                        label="Reasoning",
-                        style=discord.ButtonStyle.blurple,
-                        url=upload_url,
-                        emoji=bigbrain_emoji or "🧠"  # Fallback if emoji not found
-                    )
-                    view.add_item(button)
-                
-                await ctx.send(full_message, view=view)
+            if citations:
+                citation_lines.extend(f"{i+1}. <{url}>" for i, url in enumerate(citations))
+            
+            full_message = header
+            if citation_lines:
+                full_message += "\n" + "\n".join(citation_lines)
+            
+            # Get custom emoji
+            bigbrain_emoji = None
+            if ctx.guild:
+                bigbrain_emoji = discord.utils.get(ctx.guild.emojis, name="bigbrain")
+            
+            view = discord.ui.View()
+            if upload_url:
+                button = discord.ui.Button(
+                    label="Reasoning",
+                    style=discord.ButtonStyle.blurple,
+                    url=upload_url,
+                    emoji=bigbrain_emoji or "🧠"  # Fallback if emoji not found
+                )
+                view.add_item(button)
+            
+            await ctx.send(full_message, view=view)
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
