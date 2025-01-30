@@ -151,9 +151,9 @@ class PerplexityAI(commands.Cog):
                 )
                 return response
             except Exception as e:
-                # Properly handle HTTPX response text
-                if hasattr(e, 'response'):
-                    error_content = e.response.text  # Property access, no await/parentheses
+                # Handle error content properly
+                if hasattr(e, 'response') and e.response:
+                    error_content = e.response.text  # Access as property
                     print(f"API Error: {e} | Details: {error_content}")
                 else:
                     print(f"API Error: {e}")
