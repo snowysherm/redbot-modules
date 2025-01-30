@@ -48,40 +48,10 @@ class PerplexityAI(commands.Cog):
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
         async with ctx.typing():
-            parent_msg = None
-            original_query = None
-            if ctx.message.reference and ctx.message.reference.message_id:
-                try:
-                    parent_msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
-                    # Check if parent_msg (bot) references another message
-                    if parent_msg.reference and parent_msg.reference.message_id:
-                        original_query = await ctx.channel.fetch_message(parent_msg.reference.message_id)
-                except:
-                    pass
-
             messages = []
-            
-            # Add system prompt if configured (only once at the start)
-            if prompt := await self.config.prompt():
-                messages.append({"role": "system", "content": prompt})
-            
-            if parent_msg and parent_msg.author == self.bot.user:
-                # Include the full conversation chain:
-                # 1. Original user query (if exists)
-                # 2. Bot's previous response (parent_msg)
-                # 3. Current user message
-                if original_query and original_query.author != self.bot.user:
-                    messages.append({"role": "user", "content": original_query.content})
-                    messages.append({"role": "assistant", "content": parent_msg.content})
-                messages.append({"role": "user", "content": message})
-            elif parent_msg:
-                # Parent is user: merge context
-                combined = f"{parent_msg.content}\n\n{message}"
-                messages.append({"role": "user", "content": combined})
-            else:
-                messages.append({"role": "user", "content": message})
+            await self.build_message_chain(ctx, messages, ctx.message, message)
 
-            # Rest of the code remains unchanged
+            # Rest of existing code remains the same
             api_keys = (await self.perplexity_api_keys()).values()
             if not any(api_keys):
                 prefix = ctx.prefix if ctx.prefix else "[p]"
@@ -203,6 +173,37 @@ class PerplexityAI(commands.Cog):
         
             return chunks
 
+    async def build_message_chain(self, ctx: commands.Context, messages: List[dict], message: Message, message_text: str = None, reply_count=0):
+        if message.reference and message.reference.resolved is None:
+            message = await ctx.channel.fetch_message(message.id)
+
+        # Determine role and process content
+        role = "assistant" if message.author == self.bot.user else "user"
+        content = message_text if message_text else message.clean_content
+        
+        # Remove bot mention if present
+        mention_pattern = f"(?m)^(<@!?{self.bot.user.id}>)"
+        if re.search(mention_pattern, content):
+            content = re.sub(mention_pattern, "", content).strip()
+
+        # Merge consecutive user messages
+        if role == "user" and messages and messages[-1]["role"] == "user":
+            messages[-1]["content"] += f"\n\n{content}"
+        else:
+            messages.append({"role": role, "content": content})
+
+        # Recursively process message references (up to 5 levels deep)
+        if reply_count < 5 and message.reference and message.reference.resolved:
+            reply_count += 1
+            await self.build_message_chain(
+                ctx, messages, message.reference.resolved, 
+                None, reply_count
+            )
+
+        # Reverse to get chronological order and add system prompt
+        messages.reverse()
+        if prompt := await self.config.prompt():
+            messages.insert(0, {"role": "system", "content": prompt})
     
     @commands.command()
     @checks.is_owner()
