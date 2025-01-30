@@ -63,11 +63,10 @@ class PerplexityAI(commands.Cog):
             if prompt := await self.config.prompt():
                 messages.append({"role": "system", "content": prompt})
             
-            # Add parent message if available
-            if parent_msg:
-                # Determine role based on author
-                role = "assistant" if parent_msg.author == self.bot.user else "user"
-                messages.append({"role": role, "content": parent_msg.content})
+
+            # Add parent message only if from the bot
+            if parent_msg and parent_msg.author == self.bot.user:
+                messages.append({"role": "assistant", "content": parent_msg.content})
             
             # Add current query
             messages.append({"role": "user", "content": message})
