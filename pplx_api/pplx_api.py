@@ -57,16 +57,18 @@ class PerplexityAI(commands.Cog):
 
             messages = []
             
+            # Add system prompt ONLY if parent is not the bot
             if prompt := await self.config.prompt():
-                messages.append({"role": "system", "content": prompt})
+                if not (parent_msg and parent_msg.author == self.bot.user):
+                    messages.append({"role": "system", "content": prompt})
             
             if parent_msg:
                 if parent_msg.author == self.bot.user:
-                    # Parent is bot: add as assistant followed by current user message
+                    # Parent is bot: add as assistant
                     messages.append({"role": "assistant", "content": parent_msg.content})
                     messages.append({"role": "user", "content": message})
                 else:
-                    # Parent is user: merge with current message into one user entry
+                    # Parent is user: merge with current message
                     combined = f"{parent_msg.content}\n\n{message}"
                     messages.append({"role": "user", "content": combined})
             else:
@@ -82,6 +84,7 @@ class PerplexityAI(commands.Cog):
             max_tokens = await self.config.max_tokens() or 2000
 
             response = await self.call_api(model, api_keys, messages, max_tokens)
+
 
             if not response:
                 return await ctx.send("No response from API")
