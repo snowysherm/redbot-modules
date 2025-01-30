@@ -132,23 +132,23 @@ class PerplexityAI(commands.Cog):
         return view
 
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
-    for key in filter(None, api_keys):
-        try:
-            client = AsyncOpenAI(api_key=key, base_url="https://api.perplexity.ai")
-            response = await client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens
-            )
-            return response
-        except Exception as e:
-            # Log detailed error response
-            if hasattr(e, 'response'):
-                error_content = await e.response.text()
-                print(f"API Error: {e} | Details: {error_content}")
-            else:
-                print(f"API Error: {e}")
-    return None
+        for key in filter(None, api_keys):
+            try:
+                client = AsyncOpenAI(api_key=key, base_url="https://api.perplexity.ai")
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    max_tokens=max_tokens
+                )
+                return response
+            except Exception as e:
+                # Log detailed error response
+                if hasattr(e, 'response'):
+                    error_content = await e.response.text()
+                    print(f"API Error: {e} | Details: {error_content}")
+                else:
+                    print(f"API Error: {e}")
+        return None
 
     def smart_split(self, text: str, limit: int = 1950) -> List[str]:
             chunks = []
