@@ -23,43 +23,44 @@ class PerplexityAI(commands.Cog):
         }
         self.config.register_global(**default_global)
 
+    async def perplexity_api_keys(self):
+        return await self.bot.get_shared_api_tokens("perplexity")
+
+    async def upload_to_0x0(self, text: str) -> str:
+        url = "https://0x0.st"
+        data = aiohttp.FormData()
+        data.add_field('file', text, filename='thinking.txt')
+        data.add_field('secret', '')
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, data=data) as response:
+                    if response.status == 200:
+                        return (await response.text()).strip()
+                    else:
+                        raise Exception(f"Upload failed: HTTP {response.status}")
+        except Exception as e:
+            raise Exception(f"Upload error: {str(e)}")
+
+    @commands.command(aliases=['pplx'])
+    async def perplexity(self, ctx: commands.Context, *, message: str):
+        """Send a message to Perplexity AI"""
+        await self.do_perplexity(ctx, message)
+
     async def do_perplexity(self, ctx: commands.Context, message: str):
         async with ctx.typing():
-            # Check if message is a reply
-            parent_msg = None
-            if ctx.message.reference and ctx.message.reference.message_id:
-                try:
-                    parent_msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
-                except:
-                    pass
-
-            # Build message history
-            messages = []
-            
-            # Add system prompt if configured
-            if prompt := await self.config.prompt():
-                messages.append({"role": "system", "content": prompt})
-            
-            # Add parent message if available
-            if parent_msg:
-                # Determine role based on author
-                role = "assistant" if parent_msg.author == self.bot.user else "user"
-                messages.append({"role": role, "content": parent_msg.content})
-            
-            # Add current query
-            messages.append({"role": "user", "content": message})
-
-            # Rest of existing code remains the same
             api_keys = (await self.perplexity_api_keys()).values()
             if not any(api_keys):
                 prefix = ctx.prefix if ctx.prefix else "[p]"
                 return await ctx.send(f"API keys missing! Use `{prefix}set api perplexity api_key,api_key_2`")
-
+    
             model = await self.config.model()
             max_tokens = await self.config.max_tokens() or 2000
-
+            messages = [{"role": "user", "content": message}]
+            
+            if prompt := await self.config.prompt():
+                messages.insert(0, {"role": "system", "content": prompt})
+    
             response = await self.call_api(model, api_keys, messages, max_tokens)
-
             if not response:
                 return await ctx.send("No response from API")
                 
