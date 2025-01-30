@@ -57,18 +57,30 @@ class PerplexityAI(commands.Cog):
 
             messages = []
             
-            # Add system prompt ONLY if parent is not the bot
+            # Add system prompt only when starting a fresh conversation
             if prompt := await self.config.prompt():
-                if not (parent_msg and parent_msg.author == self.bot.user):
+                if not parent_msg:  # Only add system prompt if no parent exists
                     messages.append({"role": "system", "content": prompt})
             
             if parent_msg:
                 if parent_msg.author == self.bot.user:
-                    # Parent is bot: add as assistant
-                    messages.append({"role": "assistant", "content": parent_msg.content})
-                    messages.append({"role": "user", "content": message})
+                    # Find the user message preceding the bot's response
+                    preceding_msgs = []
+                    async for msg in ctx.channel.history(limit=5, before=parent_msg):
+                        if msg.author == ctx.author:
+                            preceding_msgs.append({"role": "user", "content": msg.content})
+                            break
+                    
+                    # Build valid sequence: [user, assistant, current user]
+                    if preceding_msgs:
+                        messages.extend(preceding_msgs)
+                        messages.append({"role": "assistant", "content": parent_msg.content})
+                        messages.append({"role": "user", "content": message})
+                    else:
+                        # Fallback: treat as new query without invalid assistant-first sequence
+                        messages.append({"role": "user", "content": message})
                 else:
-                    # Parent is user: merge with current message
+                    # Parent is user: merge messages
                     combined = f"{parent_msg.content}\n\n{message}"
                     messages.append({"role": "user", "content": combined})
             else:
@@ -84,6 +96,7 @@ class PerplexityAI(commands.Cog):
             max_tokens = await self.config.max_tokens() or 2000
 
             response = await self.call_api(model, api_keys, messages, max_tokens)
+
 
 
             if not response:
@@ -142,9 +155,9 @@ class PerplexityAI(commands.Cog):
                 )
                 return response
             except Exception as e:
-                # Log detailed error response
+                # Properly handle HTTPX response text
                 if hasattr(e, 'response'):
-                    error_content = await e.response.text()
+                    error_content = e.response.text  # Property access, no await/parentheses
                     print(f"API Error: {e} | Details: {error_content}")
                 else:
                     print(f"API Error: {e}")
