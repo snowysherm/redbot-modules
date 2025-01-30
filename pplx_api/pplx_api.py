@@ -43,9 +43,46 @@ class PerplexityAI(commands.Cog):
             raise Exception(f"Upload error: {str(e)}")
 
     @commands.command(aliases=['pplx'])
-    async def perplexity(self, ctx: commands.Context, *, message: str):
-        """Send a message to Perplexity AI"""
-        await self.do_perplexity(ctx, message)
+    async def perplexity(self, ctx: commands.Context, *, message: str = ""):
+        """Send a message to Perplexity AI, combining referenced message and additional text."""
+        question = ""
+        
+        # Check if the command is invoked as a reply
+        if ctx.message.reference:
+            ref = ctx.message.reference
+            try:
+                referenced_msg = ref.resolved or await ctx.channel.fetch_message(ref.message_id)
+            except discord.NotFound:
+                await ctx.send("The referenced message could not be found.")
+                return
+            except discord.Forbidden:
+                await ctx.send("I don't have permission to access that message.")
+                return
+            except discord.HTTPException as e:
+                await ctx.send(f"An error occurred: {str(e)}")
+                return
+
+            # Validate referenced message
+            if isinstance(referenced_msg, discord.DeletedReferencedMessage):
+                await ctx.send("The referenced message was deleted.")
+                return
+            if not isinstance(referenced_msg, discord.Message) or not referenced_msg.content.strip():
+                await ctx.send("The referenced message has no text content.")
+                return
+                
+            question = referenced_msg.content.strip()
+        
+        # Combine with additional text if provided
+        additional_text = message.strip()
+        if additional_text:
+            question = f"{question} {additional_text}" if question else additional_text
+        
+        # Final validation
+        if not question:
+            await ctx.send("Please provide a question either as text or by replying to a message.")
+            return
+
+        await self.do_perplexity(ctx, question)
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
         async with ctx.typing():
