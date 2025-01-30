@@ -211,6 +211,7 @@ class getnfo(commands.Cog):
 
             view = View()
             view.add_item(api_responses['srrdb']['button'])
+            comments = 0
             if api_responses['xrel']['button']:
                 comments = await self.fetch_comments(release, api_responses['xrel']['data'])
                 view.add_item(api_responses['xrel']['button'])
