@@ -48,7 +48,6 @@ class PerplexityAI(commands.Cog):
 
     async def do_perplexity(self, ctx: commands.Context, message: str):
         async with ctx.typing():
-            # Check if message is a reply
             parent_msg = None
             if ctx.message.reference and ctx.message.reference.message_id:
                 try:
@@ -56,22 +55,24 @@ class PerplexityAI(commands.Cog):
                 except:
                     pass
 
-            # Build message history
             messages = []
             
-            # Add system prompt if configured
             if prompt := await self.config.prompt():
                 messages.append({"role": "system", "content": prompt})
             
+            if parent_msg:
+                if parent_msg.author == self.bot.user:
+                    # Parent is bot: add as assistant followed by current user message
+                    messages.append({"role": "assistant", "content": parent_msg.content})
+                    messages.append({"role": "user", "content": message})
+                else:
+                    # Parent is user: merge with current message into one user entry
+                    combined = f"{parent_msg.content}\n\n{message}"
+                    messages.append({"role": "user", "content": combined})
+            else:
+                messages.append({"role": "user", "content": message})
 
-            # Add parent message only if from the bot
-            if parent_msg and parent_msg.author == self.bot.user:
-                messages.append({"role": "assistant", "content": parent_msg.content})
-            
-            # Add current query
-            messages.append({"role": "user", "content": message})
-
-            # Rest of existing code remains the same
+            # Rest of the code remains unchanged
             api_keys = (await self.perplexity_api_keys()).values()
             if not any(api_keys):
                 prefix = ctx.prefix if ctx.prefix else "[p]"
@@ -97,11 +98,10 @@ class PerplexityAI(commands.Cog):
                     content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
                 except Exception as e:
                     print(f"Failed to upload reasoning: {e}")
-    
+
             chunks = self.smart_split(content)
             citation_lines = [f"{i+1}. <{url}>" for i, url in enumerate(citations)] if citations else []
-    
-            # Send content chunks with button on the last one if applicable
+
             for index, chunk in enumerate(chunks):
                 view = None
                 if index == len(chunks) - 1 and upload_url:
@@ -109,8 +109,7 @@ class PerplexityAI(commands.Cog):
                 await ctx.send(chunk, view=view)
                 await ctx.typing()            
                 await asyncio.sleep(0.5)
-    
-            # Send citations separately if any exist
+
             if citation_lines:
                 header = "**Quellen:**"
                 full_message = f"{header}\n" + "\n".join(citation_lines)
