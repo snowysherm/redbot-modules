@@ -49,18 +49,26 @@ class PerplexityAI(commands.Cog):
     async def do_perplexity(self, ctx: commands.Context, message: str):
         async with ctx.typing():
             messages = []
-            await self.build_message_chain(ctx, messages, ctx.message, message)
+            await self.build_conversation_chain(ctx, message, messages)
+            
+            # Validate message structure before sending
+            if not self.validate_message_roles(messages):
+                return await ctx.send("Error: Invalid conversation sequence")
 
-            # Rest of existing code remains the same
             api_keys = (await self.perplexity_api_keys()).values()
             if not any(api_keys):
-                prefix = ctx.prefix if ctx.prefix else "[p]"
-                return await ctx.send(f"API keys missing! Use `{prefix}set api perplexity api_key,api_key_2`")
+                return await ctx.send(f"API keys missing! Use `{ctx.prefix}set api perplexity api_key,api_key_2`")
 
-            model = await self.config.model()
-            max_tokens = await self.config.max_tokens() or 2000
+            try:
+                response = await self.call_api(
+                    model=await self.config.model(),
+                    api_keys=api_keys,
+                    messages=messages,
+                    max_tokens=await self.config.max_tokens() or 2000
+                )
+            except Exception as e:
+                return await ctx.send(f"API Error: {str(e)}")
 
-            response = await self.call_api(model, api_keys, messages, max_tokens)
 
 
 
@@ -110,23 +118,86 @@ class PerplexityAI(commands.Cog):
         view.add_item(button)
         return view
 
+    async def build_conversation_chain(self, ctx: commands.Context, message: str, messages: list):
+        """Builds message chain according to Perplexity API requirements"""
+        # Add system prompt first if configured
+        if prompt := await self.config.prompt():
+            messages.append({"role": "system", "content": prompt})
+        
+        # Track conversation history
+        history = []
+        
+        # Process message references
+        current_msg = ctx.message
+        for _ in range(5):  # Max 5 levels of reply nesting
+            if current_msg.reference and current_msg.reference.message_id:
+                try:
+                    parent_msg = await ctx.channel.fetch_message(current_msg.reference.message_id)
+                    history.insert(0, parent_msg)
+                    current_msg = parent_msg
+                except:
+                    break
+            else:
+                break
+        
+        # Add historical messages with proper roles
+        for msg in history:
+            role = "assistant" if msg.author == self.bot.user else "user"
+            content = msg.clean_content
+            
+            # Remove bot mentions
+            if role == "user":
+                content = re.sub(f"<@!?{self.bot.user.id}>", "", content).strip()
+            
+            # Merge consecutive user messages
+            if messages and messages[-1]["role"] == role == "user":
+                messages[-1]["content"] += f"\n\n{content}"
+            else:
+                messages.append({"role": role, "content": content})
+        
+        # Add current message
+        messages.append({"role": "user", "content": message})
+
+    def validate_message_roles(self, messages: list) -> bool:
+        """Ensures valid role sequence: system -> user -> assistant -> user ..."""
+        valid = True
+        last_role = None
+        
+        for msg in messages:
+            current_role = msg["role"]
+            
+            if current_role == "system":
+                if last_role is not None:
+                    valid = False
+            elif current_role == "user":
+                if last_role == "user":
+                    valid = False
+            elif current_role == "assistant":
+                if last_role not in ["user", "system"]:
+                    valid = False
+            
+            last_role = current_role
+        
+        return valid
+
     async def call_api(self, model: str, api_keys: list, messages: List[dict], max_tokens: int):
         for key in filter(None, api_keys):
             try:
                 client = AsyncOpenAI(api_key=key, base_url="https://api.perplexity.ai")
-                response = await client.chat.completions.create(
+                return await client.chat.completions.create(
                     model=model,
                     messages=messages,
                     max_tokens=max_tokens
                 )
-                return response
             except Exception as e:
-                # Handle error content properly
-                if hasattr(e, 'response') and e.response:
-                    error_content = e.response.text  # Access as property
-                    print(f"API Error: {e} | Details: {error_content}")
-                else:
-                    print(f"API Error: {e}")
+                # Enhanced error logging
+                error_detail = ""
+                if hasattr(e, 'response'):
+                    try:
+                        error_detail = f" | Details: {await e.response.text()}"
+                    except:
+                        error_detail = " | Couldn't read error details"
+                print(f"API Error: {str(e)}{error_detail}")
         return None
 
     def smart_split(self, text: str, limit: int = 1950) -> List[str]:
@@ -173,32 +244,32 @@ class PerplexityAI(commands.Cog):
         
             return chunks
 
-    async def build_message_chain(self, ctx: commands.Context, messages: List[dict], message: Message, message_text: str = None, reply_count=0):
-        if message.reference and message.reference.resolved is None:
-            message = await ctx.channel.fetch_message(message.id)
+    # async def build_message_chain(self, ctx: commands.Context, messages: List[dict], message: Message, message_text: str = None, reply_count=0):
+    #     if message.reference and message.reference.resolved is None:
+    #         message = await ctx.channel.fetch_message(message.id)
 
-        # Determine role and process content
-        role = "assistant" if message.author == self.bot.user else "user"
-        content = message_text if message_text else message.clean_content
+    #     # Determine role and process content
+    #     role = "assistant" if message.author == self.bot.user else "user"
+    #     content = message_text if message_text else message.clean_content
         
-        # Remove bot mention if present
-        mention_pattern = f"(?m)^(<@!?{self.bot.user.id}>)"
-        if re.search(mention_pattern, content):
-            content = re.sub(mention_pattern, "", content).strip()
+    #     # Remove bot mention if present
+    #     mention_pattern = f"(?m)^(<@!?{self.bot.user.id}>)"
+    #     if re.search(mention_pattern, content):
+    #         content = re.sub(mention_pattern, "", content).strip()
 
-        # Merge consecutive user messages
-        if role == "user" and messages and messages[-1]["role"] == "user":
-            messages[-1]["content"] += f"\n\n{content}"
-        else:
-            messages.append({"role": role, "content": content})
+    #     # Merge consecutive user messages
+    #     if role == "user" and messages and messages[-1]["role"] == "user":
+    #         messages[-1]["content"] += f"\n\n{content}"
+    #     else:
+    #         messages.append({"role": role, "content": content})
 
-        # Recursively process message references (up to 5 levels deep)
-        if reply_count < 5 and message.reference and message.reference.resolved:
-            reply_count += 1
-            await self.build_message_chain(
-                ctx, messages, message.reference.resolved, 
-                None, reply_count
-            )
+    #     # Recursively process message references (up to 5 levels deep)
+    #     if reply_count < 5 and message.reference and message.reference.resolved:
+    #         reply_count += 1
+    #         await self.build_message_chain(
+    #             ctx, messages, message.reference.resolved, 
+    #             None, reply_count
+    #         )
 
         # Reverse to get chronological order and add system prompt
         messages.reverse()
