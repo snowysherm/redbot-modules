@@ -271,10 +271,10 @@ class PerplexityAI(commands.Cog):
     #             None, reply_count
     #         )
 
-        # Reverse to get chronological order and add system prompt
-        messages.reverse()
-        if prompt := await self.config.prompt():
-            messages.insert(0, {"role": "system", "content": prompt})
+        # # Reverse to get chronological order and add system prompt
+        # messages.reverse()
+        # if prompt := await self.config.prompt():
+        #     messages.insert(0, {"role": "system", "content": prompt})
     
     @commands.command()
     @checks.is_owner()
