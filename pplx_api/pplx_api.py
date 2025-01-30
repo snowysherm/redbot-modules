@@ -49,40 +49,35 @@ class PerplexityAI(commands.Cog):
     async def do_perplexity(self, ctx: commands.Context, message: str):
         async with ctx.typing():
             parent_msg = None
+            original_query = None
             if ctx.message.reference and ctx.message.reference.message_id:
                 try:
                     parent_msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+                    # Check if parent_msg (bot) references another message
+                    if parent_msg.reference and parent_msg.reference.message_id:
+                        original_query = await ctx.channel.fetch_message(parent_msg.reference.message_id)
                 except:
                     pass
 
             messages = []
             
-            # Add system prompt only when starting a fresh conversation
+            # Add system prompt if configured (only once at the start)
             if prompt := await self.config.prompt():
-                if not parent_msg:  # Only add system prompt if no parent exists
-                    messages.append({"role": "system", "content": prompt})
+                messages.append({"role": "system", "content": prompt})
             
-            if parent_msg:
-                if parent_msg.author == self.bot.user:
-                    # Find the user message preceding the bot's response
-                    preceding_msgs = []
-                    async for msg in ctx.channel.history(limit=5, before=parent_msg):
-                        if msg.author == ctx.author:
-                            preceding_msgs.append({"role": "user", "content": msg.content})
-                            break
-                    
-                    # Build valid sequence: [user, assistant, current user]
-                    if preceding_msgs:
-                        messages.extend(preceding_msgs)
-                        messages.append({"role": "assistant", "content": parent_msg.content})
-                        messages.append({"role": "user", "content": message})
-                    else:
-                        # Fallback: treat as new query without invalid assistant-first sequence
-                        messages.append({"role": "user", "content": message})
-                else:
-                    # Parent is user: merge messages
-                    combined = f"{parent_msg.content}\n\n{message}"
-                    messages.append({"role": "user", "content": combined})
+            if parent_msg and parent_msg.author == self.bot.user:
+                # Include the full conversation chain:
+                # 1. Original user query (if exists)
+                # 2. Bot's previous response (parent_msg)
+                # 3. Current user message
+                if original_query and original_query.author != self.bot.user:
+                    messages.append({"role": "user", "content": original_query.content})
+                    messages.append({"role": "assistant", "content": parent_msg.content})
+                messages.append({"role": "user", "content": message})
+            elif parent_msg:
+                # Parent is user: merge context
+                combined = f"{parent_msg.content}\n\n{message}"
+                messages.append({"role": "user", "content": combined})
             else:
                 messages.append({"role": "user", "content": message})
 
@@ -96,6 +91,7 @@ class PerplexityAI(commands.Cog):
             max_tokens = await self.config.max_tokens() or 2000
 
             response = await self.call_api(model, api_keys, messages, max_tokens)
+
 
 
 
