@@ -23,6 +23,29 @@ class PerplexityAI(commands.Cog):
         }
         self.config.register_global(**default_global)
 
+    async def perplexity_api_keys(self):
+        return await self.bot.get_shared_api_tokens("perplexity")
+
+    async def upload_to_0x0(self, text: str) -> str:
+        url = "https://0x0.st"
+        data = aiohttp.FormData()
+        data.add_field('file', text, filename='thinking.txt')
+        data.add_field('secret', '')
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, data=data) as response:
+                    if response.status == 200:
+                        return (await response.text()).strip()
+                    else:
+                        raise Exception(f"Upload failed: HTTP {response.status}")
+        except Exception as e:
+            raise Exception(f"Upload error: {str(e)}")
+
+    @commands.command(aliases=['pplx'])
+    async def perplexity(self, ctx: commands.Context, *, message: str):
+        """Send a message to Perplexity AI"""
+        await self.do_perplexity(ctx, message)
+
     async def do_perplexity(self, ctx: commands.Context, message: str):
         async with ctx.typing():
             # Check if message is a reply
