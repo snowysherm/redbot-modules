@@ -8,6 +8,7 @@ import asyncio
 import re
 import aiohttp
 
+
 class PerplexityAI(commands.Cog):
     """Send messages to Perplexity AI"""
 
@@ -45,8 +46,27 @@ class PerplexityAI(commands.Cog):
     @commands.command(aliases=['pplx'])
     async def perplexity(self, ctx: commands.Context, *, message: str = ""):
         """Send a message to Perplexity AI, combining referenced message and additional text."""
+        question = await self._get_question(ctx, message)
+        if not question:
+            await ctx.send("Please provide a question either as text or by replying to a message.")
+            return
+
+        await self.do_perplexity(ctx, question)
+
+    @commands.command(aliases=['pplxdeep'])
+    async def perplexitydeep(self, ctx: commands.Context, *, message: str = ""):
+        """Send a message to Perplexity AI using the deep-research model for more thorough responses."""
+        question = await self._get_question(ctx, message)
+        if not question:
+            await ctx.send("Please provide a question either as text or by replying to a message.")
+            return
+
+        await self.do_perplexity(ctx, question, model="deep-research")
+
+    async def _get_question(self, ctx: commands.Context, message: str = "") -> str:
+        """Extract question from reference and additional text."""
         question = ""
-        
+
         # Check if the command is invoked as a reply
         if ctx.message.reference:
             ref = ctx.message.reference
@@ -54,57 +74,54 @@ class PerplexityAI(commands.Cog):
                 referenced_msg = ref.resolved or await ctx.channel.fetch_message(ref.message_id)
             except discord.NotFound:
                 await ctx.send("The referenced message could not be found.")
-                return
+                return ""
             except discord.Forbidden:
                 await ctx.send("I don't have permission to access that message.")
-                return
+                return ""
             except discord.HTTPException as e:
                 await ctx.send(f"An error occurred: {str(e)}")
-                return
+                return ""
 
             # Validate referenced message
             if isinstance(referenced_msg, discord.DeletedReferencedMessage):
                 await ctx.send("The referenced message was deleted.")
-                return
+                return ""
             if not isinstance(referenced_msg, discord.Message) or not referenced_msg.content.strip():
                 await ctx.send("The referenced message has no text content.")
-                return
-                
+                return ""
+
             question = referenced_msg.content.strip()
-        
+
         # Combine with additional text if provided
         additional_text = message.strip()
         if additional_text:
             question = f"{question} {additional_text}" if question else additional_text
-        
-        # Final validation
-        if not question:
-            await ctx.send("Please provide a question either as text or by replying to a message.")
-            return
 
-        await self.do_perplexity(ctx, question)
+        return question
 
-    async def do_perplexity(self, ctx: commands.Context, message: str):
+    async def do_perplexity(self, ctx: commands.Context, message: str, model: str = None):
         async with ctx.typing():
             api_keys = (await self.perplexity_api_keys()).values()
             if not any(api_keys):
                 prefix = ctx.prefix if ctx.prefix else "[p]"
                 return await ctx.send(f"API keys missing! Use `{prefix}set api perplexity api_key,api_key_2,api_key_3`")
-    
-            model = await self.config.model()
+
+            # Use provided model or fall back to configured model
+            if model is None:
+                model = await self.config.model()
             max_tokens = await self.config.max_tokens() or 2000
             messages = [{"role": "user", "content": message}]
-            
+
             if prompt := await self.config.prompt():
                 messages.insert(0, {"role": "system", "content": prompt})
-    
+
             response = await self.call_api(model, api_keys, messages, max_tokens)
             if not response:
                 return await ctx.send("No response from API")
-                
+
             content = response.choices[0].message.content
             citations = getattr(response, 'citations', [])
-            
+
             upload_url = None
             think_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
             if think_match:
@@ -114,19 +131,19 @@ class PerplexityAI(commands.Cog):
                     content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
                 except Exception as e:
                     print(f"Failed to upload reasoning: {e}")
-    
+
             chunks = self.smart_split(content)
-            citation_lines = [f"{i+1}. <{url}>" for i, url in enumerate(citations)] if citations else []
-    
+            citation_lines = [f"{i + 1}. <{url}>" for i, url in enumerate(citations)] if citations else []
+
             # Send content chunks with button on the last one if applicable
             for index, chunk in enumerate(chunks):
                 view = None
                 if index == len(chunks) - 1 and upload_url:
                     view = self.create_view(upload_url, ctx.guild)
                 await ctx.send(chunk, view=view)
-                await ctx.typing()            
+                await ctx.typing()
                 await asyncio.sleep(0.5)
-    
+
             # Send citations separately if any exist
             if citation_lines:
                 header = "**Quellen:**"
@@ -161,50 +178,49 @@ class PerplexityAI(commands.Cog):
         return None
 
     def smart_split(self, text: str, limit: int = 1950) -> List[str]:
-            chunks = []
-            current_chunk = []
-            current_length = 0
-            in_code_block = False
-        
-            lines = text.split('\n')
-            for line in lines:
-                line_stripped = line.strip()
-                
-                # Toggle code block state on lines with ```
-                if line_stripped.startswith('```'):
-                    in_code_block = not in_code_block
-        
-                new_length = current_length + len(line) + 1  # +1 for newline
-                
-                if new_length > limit:
-                    # Finalize current chunk
-                    chunk = '\n'.join(current_chunk)
-                    
-                    # Add code block closure if needed
-                    if in_code_block:
-                        chunk += '\n```'
-                        # Next chunk should start with code block opener
-                        chunks.append(chunk)
-                        current_chunk = ['```', line]
-                        current_length = len('```\n') + len(line) + 1
+        chunks = []
+        current_chunk = []
+        current_length = 0
+        in_code_block = False
+
+        lines = text.split('\n')
+        for line in lines:
+            line_stripped = line.strip()
+
+            # Toggle code block state on lines with ```
+            if line_stripped.startswith('```'):
+                in_code_block = not in_code_block
+
+            new_length = current_length + len(line) + 1  # +1 for newline
+
+            if new_length > limit:
+                # Finalize current chunk
+                chunk = '\n'.join(current_chunk)
+
+                # Add code block closure if needed
+                if in_code_block:
+                    chunk += '\n```
+                    # Next chunk should start with code block opener
+                    chunks.append(chunk)
+                    current_chunk = ['```', line]
+                    current_length = len('```
                     else:
-                        chunks.append(chunk)
-                        current_chunk = [line]
-                        current_length = len(line) + 1
-                else:
+                    chunks.append(chunk)
+                    current_chunk = [line]
+                    current_length = len(line) + 1
+                    else:
                     current_chunk.append(line)
                     current_length = new_length
-        
-            # Add remaining content
-            if current_chunk:
-                chunk = '\n'.join(current_chunk)
-                if in_code_block:
-                    chunk += '\n```'
-                chunks.append(chunk)
-        
-            return chunks
 
-    
+                    # Add remaining content
+                    if current_chunk:
+                        chunk = '\n'.join(current_chunk)
+                    if in_code_block:
+                        chunk += '\n```'
+                    chunks.append(chunk)
+
+        return chunks
+
     @commands.command()
     @checks.is_owner()
     async def setperplexitytokens(self, ctx: commands.Context, tokens: int):
@@ -246,6 +262,7 @@ class PerplexityAI(commands.Cog):
         """Set the prompt for Perplexity AI."""
         await self.config.prompt.set(prompt)
         await ctx.send("Perplexity AI prompt set.")
+
 
 def setup(bot):
     bot.add_cog(PerplexityAI(bot))
