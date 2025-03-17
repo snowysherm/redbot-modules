@@ -199,11 +199,11 @@ class PerplexityAI(commands.Cog):
 
                 # Add code block closure if needed
                 if in_code_block:
-                    chunk += '\n```
+                    chunk += '\n```'
                     # Next chunk should start with code block opener
                     chunks.append(chunk)
                     current_chunk = ['```', line]
-                    current_length = len('```
+                    current_length = len('```')
                     else:
                     chunks.append(chunk)
                     current_chunk = [line]
