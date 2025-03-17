@@ -204,20 +204,20 @@ class PerplexityAI(commands.Cog):
                     chunks.append(chunk)
                     current_chunk = ['```', line]
                     current_length = len('```')
-                    else:
+                else:
                     chunks.append(chunk)
                     current_chunk = [line]
                     current_length = len(line) + 1
-                    else:
-                    current_chunk.append(line)
-                    current_length = new_length
+            else:
+                current_chunk.append(line)
+                current_length = new_length
 
-                    # Add remaining content
-                    if current_chunk:
-                        chunk = '\n'.join(current_chunk)
-                    if in_code_block:
-                        chunk += '\n```'
-                    chunks.append(chunk)
+        # Add remaining content
+        if current_chunk:
+            chunk = '\n'.join(current_chunk)
+        if in_code_block:
+            chunk += '\n```'
+        chunks.append(chunk)
 
         return chunks
 
