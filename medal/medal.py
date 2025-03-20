@@ -8,7 +8,7 @@ class Medal(commands.Cog):
         self.bot = bot
         self.target_user_id = 307998818547531777
         self.target_channel_id = 1349869798103842866
-        self.banned_url = "https://medal.tv/?utm_source=discord&utm_content=share_message"
+        self.banned_url = "[Medal](https://medal.tv/?utm_source=discord&utm_content=share_message)"
 
     @commands.Cog.listener()
     async def on_message(self, message):
