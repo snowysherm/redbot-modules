@@ -19,8 +19,8 @@ class PerplexityAI(commands.Cog):
             "perplexity_api_key": None,
             "perplexity_api_key_2": None,
             "perplexity_api_key_3": None,
-            "model": "sonar-reasoning",
-            "max_tokens": 2000,
+            "model": "sonar-reasoning-pro",
+            "max_tokens": 8000,
             "prompt": "",
         }
         self.config.register_global(**default_global)
@@ -225,7 +225,7 @@ class PerplexityAI(commands.Cog):
     @checks.is_owner()
     async def setperplexitytokens(self, ctx: commands.Context, tokens: int):
         """Set max tokens (2000-4000 recommended)"""
-        await self.config.max_tokens.set(max(400, min(tokens, 4000)))
+        await self.config.max_tokens.set(max(400, min(tokens, 8000)))
         await ctx.tick()
 
     @commands.command()
