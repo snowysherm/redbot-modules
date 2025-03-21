@@ -246,8 +246,8 @@ class PerplexityAI(commands.Cog):
     @checks.is_owner()
     async def getperplexitytokens(self, ctx: commands.Context):
         """Get the maximum number of tokens for Perplexity AI to generate."""
-        model = await self.config.max_tokens()
-        await ctx.send(f"Perplexity AI maximum number of tokens set to `{model}`")
+        tokens = await self.config.max_tokens()
+        await ctx.send(f"Perplexity AI maximum number of tokens set to `{tokens}`")
 
     @commands.command()
     @checks.is_owner()
