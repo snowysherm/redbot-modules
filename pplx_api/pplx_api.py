@@ -109,7 +109,7 @@ class PerplexityAI(commands.Cog):
             # Use provided model or fall back to configured model
             if model is None:
                 model = await self.config.model()
-            max_tokens = await self.config.max_tokens() or 2000
+            max_tokens = await self.config.max_tokens() or 8000
             messages = [{"role": "user", "content": message}]
 
             if prompt := await self.config.prompt():
