@@ -115,9 +115,6 @@ class PerplexityAI(commands.Cog):
             if prompt := await self.config.prompt():
                 messages.insert(0, {"role": "system", "content": prompt})
 
-            # Debug output for model and token limit
-            print(f"[Perplexity Debug] Using model: {model}")
-            print(f"[Perplexity Debug] Token limit: {max_tokens}")
             await ctx.send(f"Debug: Using model: `{model}` with token limit: `{max_tokens}`", delete_after=15)
 
             response = await self.call_api(model, api_keys, messages, max_tokens)
