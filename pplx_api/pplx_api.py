@@ -125,13 +125,12 @@ class PerplexityAI(commands.Cog):
             citations = getattr(response, 'citations', [])
 
             upload_url = None
-            think_match = re.search(r'<think>\s*(.*?)\s*</think>', content, re.DOTALL)
+            think_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
             if think_match:
                 think_text = think_match.group(1)
                 try:
                     upload_url = await self.upload_to_0x0(think_text)
-                    # Try a direct string replacement instead of regex
-                    content = content.replace(f"<think>{think_text}</think>", "")
+                    content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
                 except Exception as e:
                     print(f"Failed to upload reasoning: {e}")
 
