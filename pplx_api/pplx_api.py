@@ -29,20 +29,21 @@ class PerplexityAI(commands.Cog):
         return await self.bot.get_shared_api_tokens("perplexity")
 
     async def upload_to_0x0(self, text: str) -> str:
-        url = "https://0x0.st"
+        url = "https://x0.at"
         data = aiohttp.FormData()
         data.add_field('file', text, filename='thinking.txt')
         data.add_field('secret', '')
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(url, data=data, headers=headers) as response:
+                async with session.post(url, data=data) as response:
                     if response.status == 200:
-                        return (await response.text()).strip()
+                        result_url = await response.text()
+                        return result_url.strip()
                     else:
-                        raise Exception(f"Upload failed: HTTP {response.status}")
+                        response_text = await response.text()
+                        raise Exception(f"Upload failed: HTTP {response.status} - {response_text}")
+        except aiohttp.ClientError as e:
+            raise Exception(f"Network error: {str(e)}")
         except Exception as e:
             raise Exception(f"Upload error: {str(e)}")
 
