@@ -33,17 +33,16 @@ class PerplexityAI(commands.Cog):
         data = aiohttp.FormData()
         data.add_field('file', text, filename='thinking.txt')
         data.add_field('secret', '')
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(url, data=data) as response:
+                async with session.post(url, data=data, headers=headers) as response:
                     if response.status == 200:
-                        result_url = await response.text()
-                        return result_url.strip()
+                        return (await response.text()).strip()
                     else:
-                        response_text = await response.text()
-                        raise Exception(f"Upload failed: HTTP {response.status} - {response_text}")
-        except aiohttp.ClientError as e:
-            raise Exception(f"Network error: {str(e)}")
+                        raise Exception(f"Upload failed: HTTP {response.status}")
         except Exception as e:
             raise Exception(f"Upload error: {str(e)}")
 
