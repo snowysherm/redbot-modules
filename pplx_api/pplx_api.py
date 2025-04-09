@@ -125,7 +125,7 @@ class PerplexityAI(commands.Cog):
             citations = getattr(response, 'citations', [])
 
             upload_url = None
-            think_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
+            think_match = re.search(r'<think>\s*(.*?)\s*</think>', content, re.DOTALL)
             if think_match:
                 think_text = think_match.group(1)
                 try:
