@@ -37,13 +37,9 @@ class PerplexityAI(commands.Cog):
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, data=data) as response:
                     if response.status == 200:
-                        result_url = await response.text()
-                        return result_url.strip()
+                        return (await response.text()).strip()
                     else:
-                        response_text = await response.text()
-                        raise Exception(f"Upload failed: HTTP {response.status} - {response_text}")
-        except aiohttp.ClientError as e:
-            raise Exception(f"Network error: {str(e)}")
+                        raise Exception(f"Upload failed: HTTP {response.status}")
         except Exception as e:
             raise Exception(f"Upload error: {str(e)}")
 
@@ -119,7 +115,7 @@ class PerplexityAI(commands.Cog):
             if prompt := await self.config.prompt():
                 messages.insert(0, {"role": "system", "content": prompt})
 
-            await ctx.send(f"Debug: Using model: `{model}` with token limit: `{max_tokens}`")
+            await ctx.send(f"Debug: Using model: `{model}` with token limit: `{max_tokens}`", delete_after=15)
 
             response = await self.call_api(model, api_keys, messages, max_tokens)
             if not response:
@@ -128,96 +124,25 @@ class PerplexityAI(commands.Cog):
             content = response.choices[0].message.content
             citations = getattr(response, 'citations', [])
 
-            # ADD EXTENSIVE DEBUGGING
-            debug_info = [
-                f"**Content Analysis:**",
-                f"Total content length: {len(content)}",
-                f"Contains <think> tag: {'<think>' in content}",
-                f"Contains </think> tag: {'</think>' in content}",
-            ]
-
-            # Find tag positions if they exist
-            if '<think>' in content and '</think>' in content:
-                start_pos = content.find('<think>')
-                end_pos = content.find('</think>')
-                debug_info.append(f"<think> position: {start_pos}")
-                debug_info.append(f"</think> position: {end_pos}")
-                debug_info.append(f"Content between tags length: {end_pos - start_pos - len('<think>')}")
-                debug_info.append(f"First 100 chars after <think>: {content[start_pos + 7:start_pos + 107]}...")
-
-            await ctx.send("\n".join(debug_info))
-
-            # Try regex match with explicit reporting
             upload_url = None
-            think_match = re.search(r'<think>(.*?)</think>', content, re.DOTALL)
-
+            think_match = re.search(r'<think>\s*(.*?)\s*</think>', content, re.DOTALL)
             if think_match:
-                await ctx.send("**REGEX MATCH FOUND!** Extracting thinking content...")
                 think_text = think_match.group(1)
-                await ctx.send(f"Extracted thinking content length: {len(think_text)}")
-
-                # Try the upload
                 try:
-                    await ctx.send("Attempting to upload thinking content...")
                     upload_url = await self.upload_to_0x0(think_text)
-                    await ctx.send(f"Upload successful! URL: `{upload_url}`")
-
-                    # Try content replacement
-                    before_length = len(content)
-                    old_content = content
-                    content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
-                    after_length = len(content)
-
-                    await ctx.send(f"Content length before removal: {before_length}")
-                    await ctx.send(f"Content length after removal: {after_length}")
-                    await ctx.send(f"Difference: {before_length - after_length}")
-                    await ctx.send(f"Tags still present after removal: {'<think>' in content or '</think>' in content}")
-
-                    # Fallback to manual removal if regex didn't work
-                    if '<think>' in content or '</think>' in content:
-                        await ctx.send("Regex substitution failed! Trying manual removal...")
-                        start_idx = old_content.find('<think>')
-                        end_idx = old_content.find('</think>') + len('</think>')
-                        content = old_content[:start_idx] + old_content[end_idx:]
-                        await ctx.send(f"Manual removal result length: {len(content)}")
-                        await ctx.send(f"Tags still present: {'<think>' in content or '</think>' in content}")
+                    # Try a direct string replacement instead of regex
+                    content = content.replace(f"<think>{think_text}</think>", "")
                 except Exception as e:
-                    await ctx.send(f"**ERROR uploading reasoning**: {str(e)}")
-            else:
-                await ctx.send("**WARNING: NO REGEX MATCH FOUND for <think>...</think>**")
-
-                # Try manual extraction as fallback
-                if '<think>' in content and '</think>' in content:
-                    await ctx.send("Attempting alternative manual extraction...")
-                    start_idx = content.find('<think>')
-                    end_idx = content.find('</think>') + len('</think>')
-
-                    think_text = content[start_idx + len('<think>'):content.find('</think>')]
-                    await ctx.send(f"Manually extracted thinking content length: {len(think_text)}")
-
-                    try:
-                        upload_url = await self.upload_to_0x0(think_text)
-                        await ctx.send(f"Manual upload successful! URL: `{upload_url}`")
-                        content = content[:start_idx] + content[end_idx:]
-                    except Exception as e:
-                        await ctx.send(f"**ERROR in manual upload**: {str(e)}")
-
-            # Test button creation explicitly
-            if upload_url:
-                test_view = self.create_view(upload_url, ctx.guild)
-                await ctx.send("Testing button display:", view=test_view)
+                    print(f"Failed to upload reasoning: {e}")
 
             chunks = self.smart_split(content)
-            await ctx.send(f"Content split into {len(chunks)} chunks")
+            citation_lines = [f"{i + 1}. <{url}>" for i, url in enumerate(citations)] if citations else []
 
             # Send content chunks with button on the last one if applicable
             for index, chunk in enumerate(chunks):
                 view = None
                 if index == len(chunks) - 1 and upload_url:
-                    await ctx.send(f"Creating button view for URL: {upload_url}")
                     view = self.create_view(upload_url, ctx.guild)
-
-                await ctx.send(f"**CHUNK {index + 1}/{len(chunks)}**")
                 await ctx.send(chunk, view=view)
                 await ctx.typing()
                 await asyncio.sleep(0.5)
