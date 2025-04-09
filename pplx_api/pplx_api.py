@@ -129,15 +129,8 @@ class PerplexityAI(commands.Cog):
             if think_match:
                 think_text = think_match.group(1)
                 try:
-                    print(f"Found thinking content of length: {len(think_text)}")
                     upload_url = await self.upload_to_0x0(think_text)
-                    before_length = len(content)
                     content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
-                    after_length = len(content)
-                    print(f"Content length before: {before_length}, after: {after_length}")
-                    # Verify tags are gone
-                    if '<think>' in content:
-                        print("Warning: <think> tag still present after substitution!")
                 except Exception as e:
                     print(f"Failed to upload reasoning: {e}")
 
