@@ -125,12 +125,19 @@ class PerplexityAI(commands.Cog):
             citations = getattr(response, 'citations', [])
 
             upload_url = None
-            think_match = re.search(r'<think>\s*(.*?)\s*</think>', content, re.DOTALL)
-            if think_match:
-                think_text = think_match.group(1)
+            if '<think>' in content and '</think>' in content:
+                start_idx = content.find('<think>')
+                end_idx = content.find('</think>') + len('</think>')
+
+                # Extract thinking content
+                think_text = content[start_idx + len('<think>'):content.find('</think>')]
+
                 try:
                     upload_url = await self.upload_to_0x0(think_text)
-                    content = re.sub(r'<think>.*?</think>', '', content, flags=re.DOTALL)
+                    # Remove the thinking section from content
+                    content = content[:start_idx] + content[end_idx:]
+                    # Clean up any resulting whitespace issues
+                    content = content.strip()
                 except Exception as e:
                     print(f"Failed to upload reasoning: {e}")
 
