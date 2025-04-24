@@ -125,7 +125,7 @@ class PerplexityAI(commands.Cog):
             if prompt := await self.config.prompt():
                 messages.insert(0, {"role": "system", "content": prompt})
 
-            await ctx.send(f"Debug: Using model: `{model}` with token limit: `{max_tokens}`", delete_after=15)
+            await ctx.send(f"Debug: Using model: `{model}` with token limit: `{max_tokens}`", delete_after=3)
 
             response = await self.call_api(model, api_keys, messages, max_tokens)
             if not response:
