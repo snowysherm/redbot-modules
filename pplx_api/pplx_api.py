@@ -182,7 +182,8 @@ class PerplexityAI(commands.Cog):
                 response = await client.chat.completions.create(
                     model=model,
                     messages=messages,
-                    max_tokens=max_tokens
+                    max_tokens=max_tokens,
+                    web_search_options={"search_context_size": "high"}
                 )
                 return response
             except Exception as e:
