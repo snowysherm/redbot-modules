@@ -2,7 +2,7 @@ from redbot.core import commands
 import datetime
 
 
-class Greetings(commands.Cog):
+class GreetingWatcher(commands.Cog):
     gumo_streak = 0
     gumo_users = []
 
@@ -21,10 +21,10 @@ class Greetings(commands.Cog):
     def is_greeting_correct(self, greeting):
         now = datetime.datetime.now().hour
         
-        if greeting not in Greetings.greetings_map:
+        if greeting not in GreetingWatcher.greetings_map:
             return True
             
-        start_hour, end_hour = Greetings.greetings_map[greeting]
+        start_hour, end_hour = GreetingWatcher.greetings_map[greeting]
         
         if start_hour > end_hour:
             return now >= start_hour or now < end_hour
@@ -41,25 +41,25 @@ class Greetings(commands.Cog):
 
         # streak
 
-        if "gumo" in message.content.lower() and message.author.id not in Greetings.gumo_users:
-            Greetings.gumo_streak += 1
-            Greetings.gumo_users.append(message.author.id)
-            await message.reply(Greetings.gumo_streak)
+        if "gumo" in message.content.lower() and message.author.id not in GreetingWatcher.gumo_users:
+            GreetingWatcher.gumo_streak += 1
+            GreetingWatcher.gumo_users.append(message.author.id)
+            await message.reply(GreetingWatcher.gumo_streak)
         else:
-            if Greetings.gumo_streak > 0:
-                Greetings.gumo_streak = 0
-                Greetings.gumo_users = []
-            if Greetings.gumo_streak > 2:
+            if GreetingWatcher.gumo_streak > 0:
+                GreetingWatcher.gumo_streak = 0
+                GreetingWatcher.gumo_users = []
+            if GreetingWatcher.gumo_streak > 2:
                 grr = await message.guild.fetch_emoji(1298594465497354260)
                 await message.add_reaction(grr)
 
         # greeting check
 
-        for greeting in Greetings.greetings_map:
+        for greeting in GreetingWatcher.greetings_map:
             if greeting in message.content.lower() and not self.is_greeting_correct(greeting):
                 warndreieck = await message.guild.fetch_emoji(1304388231835422780)
                 await message.add_reaction(warndreieck)
 
 
 async def setup(bot):
-    await bot.add_cog(Greetings(bot))
+    await bot.add_cog(GreetingWatcher(bot))
