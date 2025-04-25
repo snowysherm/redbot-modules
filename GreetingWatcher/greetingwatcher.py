@@ -62,7 +62,7 @@ class GreetingWatcher(commands.Cog):
                                   '3': "3️⃣", '4': "4️⃣", '5': "5️⃣", 
                                   '6': "6️⃣", '7': "7️⃣", '8': "8️⃣", 
                                   '9': "9️⃣" }[d] for d in str(streak) ]
-                    
+                await asyncio.sleep(0.5)
                 for emoji in emojis:
                     await message.add_reaction(emoji)
                     await asyncio.sleep(0.5)
