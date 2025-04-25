@@ -1,0 +1,65 @@
+from redbot.core import commands
+import datetime
+
+
+class Greetings(commands.Cog):
+    gumo_streak = 0
+    gumo_users = []
+
+    greetings_map = {
+        "gumo": (6, 10),    # 6:00 - 9:59
+        "guvomi": (10, 12), # 10:00 - 11:59
+        "gumi": (12, 14),   # 12:00 - 13:59
+        "gunami": (14, 18), # 14:00 - 17:59
+        "guab": (18, 22),   # 18:00 - 21:59
+        "guna": (22, 6)     # 22:00 - 5:59
+    }
+
+    def __init__(self, bot):
+        self.bot = bot
+
+    def is_greeting_correct(self, greeting):
+        now = datetime.datetime.now().hour
+        
+        if greeting not in Greetings.greetings_map:
+            return True
+            
+        start_hour, end_hour = Greetings.greetings_map[greeting]
+        
+        if start_hour > end_hour:
+            return now >= start_hour or now < end_hour
+        else:
+            return start_hour <= now < end_hour
+
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        if message.channel.id != 1264855954743230556:
+            return
+
+        if message.author.bot:
+            return
+
+        # streak
+
+        if "gumo" in message.content.lower() and message.author.id not in Greetings.gumo_users:
+            Greetings.gumo_streak += 1
+            Greetings.gumo_users.append(message.author.id)
+            await message.reply(Greetings.gumo_streak)
+        else:
+            if Greetings.gumo_streak > 0:
+                Greetings.gumo_streak = 0
+                Greetings.gumo_users = []
+            if Greetings.gumo_streak > 2:
+                grr = await message.guild.fetch_emoji(1298594465497354260)
+                await message.add_reaction(grr)
+
+        # greeting check
+
+        for greeting in Greetings.greetings_map:
+            if greeting in message.content.lower() and not self.is_greeting_correct(greeting):
+                warndreieck = await message.guild.fetch_emoji(1304388231835422780)
+                await message.add_reaction(warndreieck)
+
+
+async def setup(bot):
+    await bot.add_cog(Greetings(bot))
