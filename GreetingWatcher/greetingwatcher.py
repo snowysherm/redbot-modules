@@ -47,7 +47,7 @@ class GreetingWatcher(commands.Cog):
             GreetingWatcher.gumo_users.append(message.author.id)
 
             streak = GreetingWatcher.gumo_streak
-            if streak < 33:
+            if streak < 33 and streak >= 3:
                 if streak == 11:
                     emojis = ["⏸️"]
                 elif streak == 22:
