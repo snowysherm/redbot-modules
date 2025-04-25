@@ -34,7 +34,7 @@ class GreetingWatcher(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        if message.channel.id != 1264855954743230556:
+        if message.channel.id != 1218208566817587362:
             return
 
         if message.author.bot:
