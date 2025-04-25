@@ -1,5 +1,6 @@
 from redbot.core import commands
 import datetime
+import asyncio
 
 
 class GreetingWatcher(commands.Cog):
@@ -44,6 +45,27 @@ class GreetingWatcher(commands.Cog):
         if "gumo" in message.content.lower() and message.author.id not in GreetingWatcher.gumo_users:
             GreetingWatcher.gumo_streak += 1
             GreetingWatcher.gumo_users.append(message.author.id)
+
+            streak = GreetingWatcher.gumo_streak
+            if streak < 33:
+                if streak == 11:
+                    emojis = ["⏸️"]
+                elif streak == 22:
+                    emojis = ["2️⃣", "🥈"]
+                elif streak <= 10:
+                    emojis = ["🔟"] if streak == 10 else [ { '0': "0️⃣", '1': "1️⃣", '2': "2️⃣", 
+                                                              '3': "3️⃣", '4': "4️⃣", '5': "5️⃣", 
+                                                              '6': "6️⃣", '7': "7️⃣", '8': "8️⃣", 
+                                                              '9': "9️⃣" }[str(streak)] ]
+                else:
+                    emojis = [ { '0': "0️⃣", '1': "1️⃣", '2': "2️⃣", 
+                                  '3': "3️⃣", '4': "4️⃣", '5': "5️⃣", 
+                                  '6': "6️⃣", '7': "7️⃣", '8': "8️⃣", 
+                                  '9': "9️⃣" }[d] for d in str(streak) ]
+                    
+                for emoji in emojis:
+                    await message.add_reaction(emoji)
+                    await asyncio.sleep(0.5)
         else:
             if GreetingWatcher.gumo_streak > 0:
                 GreetingWatcher.gumo_streak = 0
