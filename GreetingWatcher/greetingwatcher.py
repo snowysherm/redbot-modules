@@ -44,7 +44,6 @@ class GreetingWatcher(commands.Cog):
         if "gumo" in message.content.lower() and message.author.id not in GreetingWatcher.gumo_users:
             GreetingWatcher.gumo_streak += 1
             GreetingWatcher.gumo_users.append(message.author.id)
-            await message.reply(GreetingWatcher.gumo_streak)
         else:
             if GreetingWatcher.gumo_streak > 0:
                 GreetingWatcher.gumo_streak = 0
