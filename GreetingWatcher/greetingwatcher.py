@@ -57,8 +57,12 @@ class GreetingWatcher(commands.Cog):
         for greeting in GreetingWatcher.greetings_map:
             if greeting in message.content.lower():
                 if self.is_greeting_correct(greeting):
-                    feelsokman = await message.guild.fetch_emoji(1240917116329263135)
-                    await message.add_reaction(feelsokman)
+                    if greeting == "guna":
+                        bedge = await message.guild.fetch_emoji(1311619322187223120)
+                        await message.add_reaction(bedge)
+                    else:
+                        feelsokman = await message.guild.fetch_emoji(1240917116329263135)
+                        await message.add_reaction(feelsokman)
                 else:
                     warndreieck = await message.guild.fetch_emoji(1304388231835422780)
                     await message.add_reaction(warndreieck)
