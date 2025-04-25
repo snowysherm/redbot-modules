@@ -67,7 +67,7 @@ class GreetingWatcher(commands.Cog):
                     await message.add_reaction(emoji)
                     await asyncio.sleep(0.25)
         else:
-            if GreetingWatcher.gumo_streak > 1:
+            if GreetingWatcher.gumo_streak >= 3:
                 grr = await message.guild.fetch_emoji(1298594465497354260)
                 await message.add_reaction(grr)
             GreetingWatcher.gumo_streak = 0
