@@ -70,7 +70,7 @@ class GreetingWatcher(commands.Cog):
             if GreetingWatcher.gumo_streak > 0:
                 GreetingWatcher.gumo_streak = 0
                 GreetingWatcher.gumo_users = []
-            if GreetingWatcher.gumo_streak > 2:
+            if GreetingWatcher.gumo_streak > 1:
                 grr = await message.guild.fetch_emoji(1298594465497354260)
                 await message.add_reaction(grr)
 
