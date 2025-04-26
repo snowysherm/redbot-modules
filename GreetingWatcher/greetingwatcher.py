@@ -40,6 +40,21 @@ class GreetingWatcher(commands.Cog):
         if message.author.bot:
             return
 
+        for greeting in GreetingWatcher.greetings_map:
+            if greeting in message.content.lower():
+                if self.is_greeting_correct(greeting):
+                    if greeting == "guna":
+                        bedge = await message.guild.fetch_emoji(1311619322187223120)
+                        await message.add_reaction(bedge)
+                    else:
+                        feelsokman = await message.guild.fetch_emoji(1240917116329263135)
+                        await message.add_reaction(feelsokman)
+                    await asyncio.sleep(0.25)
+                else:
+                    warndreieck = await message.guild.fetch_emoji(1304388231835422780)
+                    await message.add_reaction(warndreieck)
+
+        
         # streak
 
         if "gumo" in message.content.lower() and message.author.id not in GreetingWatcher.gumo_users:
@@ -62,7 +77,6 @@ class GreetingWatcher(commands.Cog):
                                   '3': "3️⃣", '4': "4️⃣", '5': "5️⃣", 
                                   '6': "6️⃣", '7': "7️⃣", '8': "8️⃣", 
                                   '9': "9️⃣" }[d] for d in str(streak) ]
-                await asyncio.sleep(0.25)
                 for emoji in emojis:
                     await message.add_reaction(emoji)
                     await asyncio.sleep(0.25)
@@ -72,21 +86,6 @@ class GreetingWatcher(commands.Cog):
                 await message.add_reaction(grr)
             GreetingWatcher.gumo_streak = 0
             GreetingWatcher.gumo_users = []
-
-        # greeting check
-
-        for greeting in GreetingWatcher.greetings_map:
-            if greeting in message.content.lower():
-                if self.is_greeting_correct(greeting):
-                    if greeting == "guna":
-                        bedge = await message.guild.fetch_emoji(1311619322187223120)
-                        await message.add_reaction(bedge)
-                    else:
-                        feelsokman = await message.guild.fetch_emoji(1240917116329263135)
-                        await message.add_reaction(feelsokman)
-                else:
-                    warndreieck = await message.guild.fetch_emoji(1304388231835422780)
-                    await message.add_reaction(warndreieck)
 
 
 async def setup(bot):
