@@ -37,9 +37,6 @@ class GreetingWatcher(commands.Cog):
         if message.channel.id != 1218208566817587362:
             return
 
-        if message.author.bot:
-            return
-
         for greeting in GreetingWatcher.greetings_map:
             if greeting in message.content.lower():
                 if self.is_greeting_correct(greeting):
