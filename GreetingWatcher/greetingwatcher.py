@@ -54,7 +54,7 @@ class GreetingWatcher(commands.Cog):
         
         # streak
 
-        if "gumo" in message.content.lower() and message.author.id not in GreetingWatcher.gumo_users:
+        if "gumo" in message.content.lower() and message.author.id not in GreetingWatcher.gumo_users and self.is_greeting_correct("gumo"):
             GreetingWatcher.gumo_streak += 1
             GreetingWatcher.gumo_users.append(message.author.id)
 
