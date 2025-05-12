@@ -56,12 +56,11 @@ class getnfo(commands.Cog):
 
         response = requests.get(url)
 
-        if response.status_code == 200:
-            if response.json()['release'] is None:
-                return {
-                    'success': None,
-                    'button': False
-                }
+        if response.status_code == 200 and response.json()['release'] is None or response.status_code != 200:
+            return {
+                'success': None,
+                'button': False
+            }
 
         button = Button(label="View on srrDB", url=f"https://www.srrdb.com/release/details/{release}")
 
