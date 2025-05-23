@@ -1,0 +1,12 @@
+{
+  "author": ["sherm"],
+  "name": "kicken",
+  "description": "kicken",
+  "install_msg": "",
+  "short": "",
+  "tags": [""],
+  "requirements": ["kicken"],
+  "type": "COG",
+  "end_user_data_statement": "",
+  "min_bot_version": "3.5.0"
+}
