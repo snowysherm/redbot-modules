@@ -5,7 +5,7 @@
   "install_msg": "",
   "short": "",
   "tags": [""],
-  "requirements": ["kicken"],
+  "requirements": ["mcrcon"],
   "type": "COG",
   "end_user_data_statement": "",
   "min_bot_version": "3.5.0"
